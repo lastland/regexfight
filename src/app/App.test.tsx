@@ -77,11 +77,13 @@ describe('App', () => {
   });
 
   it('runs a full encounter through to post-mortem on a correct Ward', async () => {
-    // Real timers (~30s wall-time). Fake timers + React 18 scheduling +
-    // setInterval is unreliable in this stack; the simulation logic itself is
-    // already property-tested in src/combat. This test just verifies the UI
-    // wiring drives an encounter to completion.
-    render(<App />);
+    // Under event-driven pacing (see view/docs/adr/0003), the sim only
+    // advances when the canvas requests the next event. We pass the
+    // test-only `autoTick` prop so the canvas fires `onRequestNextEvent`
+    // on every animation frame, driving the encounter to completion
+    // without waiting on the per-spell animation state machine. End-pause
+    // (1200 ms) is still real wall-time, so we wait up to 5 s.
+    render(<App autoTick={true} />);
 
     // Wait for PrepScreen.
     await waitFor(
@@ -107,13 +109,11 @@ describe('App', () => {
       startBtn!.click();
     });
 
-    // Tutorial enemy: baseHp=10, ~50/50 reals/decoys, 700 ms/tick + 1200 ms
-    // end-pause → ~30 s in the worst case. Wait up to 45 s.
     await waitFor(
       () => {
         expect(screen.queryByText(/Victory/i)).toBeTruthy();
       },
-      { timeout: 45000, interval: 200 },
+      { timeout: 5000, interval: 50 },
     );
-  }, 60000);
+  }, 10000);
 });

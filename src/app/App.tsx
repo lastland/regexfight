@@ -72,10 +72,30 @@ type ScreenState =
     }
   | { tag: 'run-complete' };
 
-const TICK_MS = 700;
+/**
+ * The encounter sim is no longer driven by `setInterval`. Each per-spell
+ * animation in the EncounterCanvas calls `onRequestNextEvent` when its
+ * Aftermath finishes, and that callback is what advances the sim. See
+ * `src/view/docs/adr/0003-event-driven-encounter-pacing.md`.
+ *
+ * `END_PAUSE_MS` is a transition delay between EncounterEnded and the
+ * post-mortem screen — it is NOT the encounter clock, so it survives the
+ * refactor unchanged.
+ */
 const END_PAUSE_MS = 1200;
 
-export function App() {
+export type AppProps = {
+  /**
+   * Test-only escape hatch. When true, the EncounterCanvas auto-requests
+   * the next event on every animation frame, driving the encounter to
+   * completion synchronously without depending on the per-spell animation
+   * state machine. See `EncounterCanvasProps.autoTick`. Production code
+   * must NOT pass this.
+   */
+  autoTick?: boolean | undefined;
+};
+
+export function App(props: AppProps = {}) {
   const [enemies, setEnemies] = useState<Enemy[] | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [screen, setScreen] = useState<ScreenState>({ tag: 'loading' });
@@ -140,34 +160,46 @@ export function App() {
     }
   }, [run]);
 
-  // --- Encounter tick loop --------------------------------------------------
+  // --- Event-driven pacing --------------------------------------------------
+  //
+  // Replaces the v1 setInterval loop. The EncounterCanvas calls
+  // `onRequestNextEvent` when each per-spell animation finishes. We step
+  // the sim, append the event, and (on EncounterEnded) schedule the
+  // post-mortem transition after END_PAUSE_MS.
+  //
+  // `endedRef` guards against re-entry: the canvas may briefly fire one
+  // more request between the EncounterEnded event arriving and the
+  // post-mortem render replacing the EncounterScreen.
 
   const endedRef = useRef(false);
   useEffect(() => {
     if (screen.tag !== 'encounter') {
       endedRef.current = false;
-      return;
     }
-    endedRef.current = false;
-    const id = window.setInterval(() => {
-      if (endedRef.current) return;
-      setScreen((prev) => {
-        if (prev.tag !== 'encounter' || prev.ended) return prev;
-        const { state, event } = stepEncounter(prev.sim, prev.ward);
-        const nextEvents = [...prev.events, event];
-        if (event.tag === 'EncounterEnded') {
-          endedRef.current = true;
-          window.setTimeout(() => commitEncounterEnd(nextEvents), END_PAUSE_MS);
-          return { ...prev, sim: state, events: nextEvents, ended: true };
-        }
-        return { ...prev, sim: state, events: nextEvents };
-      });
-    }, TICK_MS);
-    return () => window.clearInterval(id);
-    // commitEncounterEnd reads `run`/`enemies` via closure; we re-bind it
-    // each render so the latest values are captured.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen.tag]);
+
+  // Held in a ref so `onRequestNextEvent` (memoized with `[]` deps so the
+  // EncounterCanvas effect-dep is stable) always sees the latest
+  // `commitEncounterEnd` closure over the current `run`/`enemies`.
+  const commitEncounterEndRef = useRef<(events: EncounterEvent[]) => void>(
+    () => undefined,
+  );
+
+  const onRequestNextEvent = useCallback(() => {
+    if (endedRef.current) return;
+    setScreen((prev) => {
+      if (prev.tag !== 'encounter' || prev.ended) return prev;
+      const { state, event } = stepEncounter(prev.sim, prev.ward);
+      const nextEvents = [...prev.events, event];
+      if (event.tag === 'EncounterEnded') {
+        endedRef.current = true;
+        const commit = commitEncounterEndRef.current;
+        window.setTimeout(() => commit(nextEvents), END_PAUSE_MS);
+        return { ...prev, sim: state, events: nextEvents, ended: true };
+      }
+      return { ...prev, sim: state, events: nextEvents };
+    });
+  }, []);
 
   // --- Transitions ----------------------------------------------------------
 
@@ -225,6 +257,12 @@ export function App() {
     },
     [run, currentEnemy],
   );
+
+  // Keep the ref synced so `onRequestNextEvent` (stable identity) can
+  // reach the most recent closure when the encounter ends.
+  useEffect(() => {
+    commitEncounterEndRef.current = commitEncounterEnd;
+  }, [commitEncounterEnd]);
 
   const onRetry = useCallback(() => {
     setScreen((prev) => ({
@@ -310,6 +348,8 @@ export function App() {
         playerMaxHp={screen.sim.playerMaxHp}
         enemyMaxHp={screen.sim.enemyMaxHp}
         currentPhaseIdx={screen.sim.currentPhaseIdx}
+        onRequestNextEvent={onRequestNextEvent}
+        autoTick={props.autoTick}
       />
     );
   }

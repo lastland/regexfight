@@ -10,12 +10,15 @@
  * the terminal `EncounterEnded` event arrives.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { EncounterEvent } from '../combat/types';
 import type { HP } from '../run/types';
 import type { Enemy } from '../content/types';
 import { EncounterCanvas } from './EncounterCanvas';
 import { KIND_CLASS, OUTCOME_CLASS, OUTCOME_LABEL } from './colors';
+import { SpeedControl } from './SpeedControl';
+import { useSpeedMultiplier } from './useSpeedMultiplier';
+import { HpBarTween } from './effects/hpBarTween';
 
 export type EncounterScreenProps = {
   enemy: Enemy;
@@ -25,17 +28,22 @@ export type EncounterScreenProps = {
   playerMaxHp: HP;
   enemyMaxHp: HP;
   currentPhaseIdx: number;
+  /**
+   * Pull contract: called when the canvas's current per-spell animation
+   * completes (Aftermath finished). The screen forwards the call from
+   * the canvas to App, which steps the sim and produces the next event.
+   * Required — see `docs/adr/0003-event-driven-encounter-pacing.md`.
+   */
+  onRequestNextEvent: () => void;
   onEnded?: (result: 'Victory' | 'Defeat') => void;
+  /**
+   * Test-only: forwarded to the canvas. Production code must NOT pass
+   * this. See `EncounterCanvasProps.autoTick`.
+   */
+  autoTick?: boolean | undefined;
 };
 
 const TICKER_WINDOW = 20;
-
-function pct(cur: HP, max: HP): number {
-  const c = cur as unknown as number;
-  const m = max as unknown as number;
-  if (m <= 0) return 0;
-  return Math.max(0, Math.min(100, (c / m) * 100));
-}
 
 export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
   const {
@@ -46,8 +54,19 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
     playerMaxHp,
     enemyMaxHp,
     currentPhaseIdx,
+    onRequestNextEvent,
     onEnded,
+    autoTick,
   } = props;
+
+  const { speed, cycleSpeed } = useSpeedMultiplier();
+
+  // Phase-transition white flash on the enemy HP bar. Each PhaseAdvanced
+  // event bumps the key, which the HpBarTween component watches.
+  const phaseFlashKey = useMemo(
+    () => events.filter((e) => e.tag === 'PhaseAdvanced').length,
+    [events],
+  );
 
   // Fire `onEnded` exactly once when the terminal event appears.
   const endedFiredRef = useRef(false);
@@ -70,21 +89,40 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6 text-zinc-100">
       <div className="grid grid-cols-2 gap-6">
-        <HpBar label="Player" hp={playerHp} max={playerMaxHp} side="left" />
-        <HpBar
-          label={enemy.name}
-          hp={enemyHp}
-          max={enemyMaxHp}
-          side="right"
-        />
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">Player</span>
+          <HpBarTween
+            current={playerHp as unknown as number}
+            max={playerMaxHp as unknown as number}
+            side="player"
+          />
+        </div>
+        <div className="flex flex-col gap-1 text-right">
+          <span className="font-semibold">{enemy.name}</span>
+          <HpBarTween
+            current={enemyHp as unknown as number}
+            max={enemyMaxHp as unknown as number}
+            side="enemy"
+            flashKey={phaseFlashKey}
+          />
+        </div>
       </div>
-      <div className="text-center font-mono text-sm text-zinc-400">
-        Phase {currentPhaseIdx + 1} / {enemy.phases.length}
+      <div className="flex items-center justify-between font-mono text-sm text-zinc-400">
+        <span aria-hidden="true" className="invisible">spacer</span>
+        <span>
+          Phase {currentPhaseIdx + 1} / {enemy.phases.length}
+        </span>
+        <SpeedControl speed={speed} onCycle={cycleSpeed} />
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-2">
-          <EncounterCanvas events={events} />
+          <EncounterCanvas
+            events={events}
+            onRequestNextEvent={onRequestNextEvent}
+            speed={speed}
+            autoTick={autoTick}
+          />
         </div>
         <aside
           aria-label="Event ticker"
@@ -113,32 +151,3 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
   );
 }
 
-type HpBarProps = {
-  label: string;
-  hp: HP;
-  max: HP;
-  side: 'left' | 'right';
-};
-
-function HpBar(props: HpBarProps): JSX.Element {
-  const filled = pct(props.hp, props.max);
-  const align = props.side === 'left' ? 'text-left' : 'text-right';
-  const fillJustify = props.side === 'left' ? 'left-0' : 'right-0';
-  const color = props.side === 'left' ? 'bg-emerald-600' : 'bg-rose-600';
-  return (
-    <div className={`flex flex-col gap-1 ${align}`}>
-      <div className="flex items-baseline justify-between">
-        <span className="font-semibold">{props.label}</span>
-        <span className="font-mono text-sm text-zinc-400">
-          {props.hp as unknown as number} / {props.max as unknown as number}
-        </span>
-      </div>
-      <div className="relative h-3 overflow-hidden rounded border border-zinc-700 bg-zinc-900">
-        <div
-          className={`absolute top-0 h-full transition-[width] duration-200 ${fillJustify} ${color}`}
-          style={{ width: `${filled}%` }}
-        />
-      </div>
-    </div>
-  );
-}
