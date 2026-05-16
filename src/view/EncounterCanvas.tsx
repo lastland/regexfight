@@ -28,7 +28,7 @@
  *   - src/view/docs/adr/0004-five-phase-spell-animation.md
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type JSX } from 'react';
 import type { EncounterEvent, Kind, Outcome } from '../combat/types';
 import type { SpeedMultiplier } from './useSpeedMultiplier';
 import {
@@ -237,7 +237,7 @@ function playerPoseFor(anim: SpellAnimation): PlayerPose {
     case 'travel':
     case 'preImpact':
       return 'idle';
-    case 'resolution': {
+    case 'resolution':
       switch (anim.event.outcome) {
         case 'Counterattack':
           return 'counterattack';
@@ -247,7 +247,7 @@ function playerPoseFor(anim: SpellAnimation): PlayerPose {
         case 'Dodge':
           return 'idle';
       }
-    }
+    // falls through — inner switch above is exhaustive on Outcome
     case 'aftermath':
       return 'idle';
   }
@@ -288,7 +288,6 @@ function sigilStateFor(anim: SpellAnimation, now: number, speed: SpeedMultiplier
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-
 export type EncounterCanvasProps = {
   events: readonly EncounterEvent[];
   /**
@@ -323,12 +322,13 @@ export function EncounterCanvas(props: EncounterCanvasProps): JSX.Element {
   // Reset state on encounter-instance change. We use the first event's
   // identity as a coarse proxy: if `events.length` drops to 0 we treat
   // it as a fresh encounter.
+  const eventsEmpty = props.events.length === 0;
   useEffect(() => {
-    if (props.events.length === 0) {
+    if (eventsEmpty) {
       stateRef.current = initialState();
       initialRequestFiredRef.current = false;
     }
-  }, [props.events.length === 0]);
+  }, [eventsEmpty]);
 
   // Test-only autoTick: synchronously request the next event on each frame
   // until EncounterEnded. Bypasses the animation state machine.
@@ -342,7 +342,7 @@ export function EncounterCanvas(props: EncounterCanvasProps): JSX.Element {
     const id = requestAnimationFrame(() => {
       onRequestNextEvent();
     });
-    return () => cancelAnimationFrame(id);
+    return () => { cancelAnimationFrame(id); };
   }, [autoTick, events, onRequestNextEvent]);
 
   // Main animation loop. Mounts once.
@@ -399,7 +399,7 @@ export function EncounterCanvas(props: EncounterCanvasProps): JSX.Element {
             // all flashes when the *Resolution* phase enters (below).
           } else if (ev.tag === 'PhaseAdvanced') {
             state.active = { kind: 'phaseAdvance', event: ev, startTime: now };
-          } else if (ev.tag === 'EncounterEnded') {
+          } else {
             state.active = { kind: 'end', event: ev, startTime: now };
           }
           state.lastConsumedIdx = idx;
@@ -427,7 +427,6 @@ export function EncounterCanvas(props: EncounterCanvasProps): JSX.Element {
         rafRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoTick]);
 
   return (

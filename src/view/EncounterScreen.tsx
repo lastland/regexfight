@@ -10,7 +10,7 @@
  * the terminal `EncounterEnded` event arrives.
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type JSX } from 'react';
 import type { EncounterEvent } from '../combat/types';
 import type { HP } from '../run/types';
 import type { Enemy } from '../content/types';
@@ -92,16 +92,16 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
         <div className="flex flex-col gap-1">
           <span className="font-semibold">Player</span>
           <HpBarTween
-            current={playerHp as unknown as number}
-            max={playerMaxHp as unknown as number}
+            current={playerHp}
+            max={playerMaxHp}
             side="player"
           />
         </div>
         <div className="flex flex-col gap-1 text-right">
           <span className="font-semibold">{enemy.name}</span>
           <HpBarTween
-            current={enemyHp as unknown as number}
-            max={enemyMaxHp as unknown as number}
+            current={enemyHp}
+            max={enemyMaxHp}
             side="enemy"
             flashKey={phaseFlashKey}
           />

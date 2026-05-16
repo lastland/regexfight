@@ -12,11 +12,13 @@ import type { PlayerProfile } from '../run/types';
 import { EnemySchema, PlayerProfileSchema } from './schemas';
 import type { Enemy } from './types';
 
+// eslint-disable-next-line @typescript-eslint/require-await -- async preserves Promise-rejection semantics for callers that surface schema failures via `.rejects.toThrow(...)` and matches the async signature of the URL-loading variants below.
 export async function loadEnemyYaml(yamlText: string): Promise<Enemy> {
   const raw: unknown = parseYaml(yamlText);
   return EnemySchema.parse(raw);
 }
 
+// eslint-disable-next-line @typescript-eslint/require-await -- see loadEnemyYaml
 export async function loadPlayerYaml(yamlText: string): Promise<PlayerProfile> {
   const raw: unknown = parseYaml(yamlText);
   return PlayerProfileSchema.parse(raw);

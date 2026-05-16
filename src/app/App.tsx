@@ -104,12 +104,13 @@ export function App(props: AppProps = {}) {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const [player, tutorial] = await Promise.all([
           loadPlayerYaml(playerYamlText),
           loadEnemyYaml(tutorialYamlText),
         ]);
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cleanup may flip `cancelled` between the await and here; the typechecker can't see closure mutation.
         if (cancelled) return;
         const enemiesLoaded = [tutorial];
         setEnemies(enemiesLoaded);
@@ -137,6 +138,7 @@ export function App(props: AppProps = {}) {
             : { tag: 'run-complete' },
         );
       } catch (e) {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- see above
         if (cancelled) return;
         const message = e instanceof Error ? e.message : String(e);
         setScreen({ tag: 'load-error', message });
@@ -194,7 +196,7 @@ export function App(props: AppProps = {}) {
       if (event.tag === 'EncounterEnded') {
         endedRef.current = true;
         const commit = commitEncounterEndRef.current;
-        window.setTimeout(() => commit(nextEvents), END_PAUSE_MS);
+        window.setTimeout(() => { commit(nextEvents); }, END_PAUSE_MS);
         return { ...prev, sim: state, events: nextEvents, ended: true };
       }
       return { ...prev, sim: state, events: nextEvents };
@@ -304,7 +306,7 @@ export function App(props: AppProps = {}) {
       <CenteredMessage>
         <h1 className="text-3xl">Run complete.</h1>
         <p className="text-zinc-400 mt-2">
-          Score: {run ? (run.progressScore as unknown as number) : 0}
+          Score: {run ? (run.progressScore) : 0}
         </p>
       </CenteredMessage>
     );
@@ -343,8 +345,8 @@ export function App(props: AppProps = {}) {
       <EncounterScreen
         enemy={currentEnemy}
         events={screen.events}
-        playerHp={hp(Math.max(0, screen.sim.playerHp as unknown as number))}
-        enemyHp={hp(Math.max(0, screen.sim.enemyHp as unknown as number))}
+        playerHp={hp(Math.max(0, screen.sim.playerHp))}
+        enemyHp={hp(Math.max(0, screen.sim.enemyHp))}
         playerMaxHp={screen.sim.playerMaxHp}
         enemyMaxHp={screen.sim.enemyMaxHp}
         currentPhaseIdx={screen.sim.currentPhaseIdx}
@@ -407,16 +409,20 @@ function makeRunValidator(enemies: Enemy[]) {
     if (typeof payload !== 'object' || payload === null) {
       throw new Error('Run payload is not an object');
     }
-    const p = payload as Run;
+    const p = payload as Record<string, unknown>;
     if (!Array.isArray(p.enemies) || typeof p.currentIdx !== 'number') {
       throw new Error('Run payload missing required fields');
     }
     // Sanity check: the persisted Enemy ids must match the loaded roster.
     const loadedIds = new Set(enemies.map((e) => e.id as unknown as string));
-    for (const ref of p.enemies) {
-      if (typeof ref.id !== 'string' || !loadedIds.has(ref.id as unknown as string)) {
+    for (const ref of p.enemies as unknown[]) {
+      if (typeof ref !== 'object' || ref === null) {
+        throw new Error('Run.enemies entry is not an object');
+      }
+      const refId = (ref as Record<string, unknown>).id;
+      if (typeof refId !== 'string' || !loadedIds.has(refId)) {
         throw new Error(
-          `Run references unknown enemy id ${String(ref.id)}; save likely from a different content version`,
+          `Run references unknown enemy id ${String(refId)}; save likely from a different content version`,
         );
       }
     }
@@ -434,11 +440,12 @@ function makeRunValidator(enemies: Enemy[]) {
     }
     // enemyAttemptCounts and deathCount were added after the initial save
     // format; coalesce defaults so saves from the prior build still load.
+    const base = payload as Run;
     const coalesced: Run = {
-      ...p,
+      ...base,
       enemyAttemptCounts:
         typeof p.enemyAttemptCounts === 'object' && p.enemyAttemptCounts !== null
-          ? p.enemyAttemptCounts
+          ? (p.enemyAttemptCounts as Run['enemyAttemptCounts'])
           : {},
       deathCount: typeof p.deathCount === 'number' ? p.deathCount : 0,
     };

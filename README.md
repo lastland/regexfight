@@ -19,9 +19,20 @@ Open the URL the dev server prints. You'll land on the Prep Screen for the tutor
 npm run build        # tsc -b && vite build  →  dist/
 npm run preview      # serve the built dist/ for verification
 npm run typecheck    # tsc --noEmit (strict, with exactOptionalPropertyTypes)
+npm run lint         # eslint . (typescript-eslint strictTypeChecked)
 npm test             # vitest run — 46 tests across 6 files
 npm run test:watch   # vitest in watch mode
 ```
+
+## Continuous integration
+
+GitHub Actions runs typecheck + lint + tests (with coverage) + build on every PR
+to `main` and every push to `main`. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+The four scripts above are the local equivalents.
+
+Node version is pinned in [`.nvmrc`](.nvmrc) (also surfaced via `engines.node`
+in `package.json`). CI reads the same file via `actions/setup-node`'s
+`node-version-file`, so dev and CI never drift.
 
 ## How to play (v1)
 

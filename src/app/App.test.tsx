@@ -18,7 +18,7 @@ function makeMemoryStorage(): Storage {
     get length() {
       return m.size;
     },
-    clear: () => m.clear(),
+    clear: () => { m.clear(); },
     getItem: (k) => m.get(k) ?? null,
     setItem: (k, v) => void m.set(k, v),
     removeItem: (k) => void m.delete(k),
@@ -96,14 +96,14 @@ describe('App', () => {
     // The tutorial pattern is /^[a-z]+\d{2,3}$/. A correct Ward.
     const wardInput = document.querySelector(
       '#ward-source',
-    ) as HTMLInputElement | null;
+    );
     expect(wardInput).toBeTruthy();
     fireEvent.change(wardInput!, { target: { value: '^[a-z]+\\d{2,3}$' } });
 
     // Find and click the Start encounter button.
     const startBtn = Array.from(
       document.querySelectorAll('button'),
-    ).find((b) => /start encounter/i.test(b.textContent ?? ''));
+    ).find((b) => /start encounter/i.test(b.textContent));
     expect(startBtn).toBeTruthy();
     act(() => {
       startBtn!.click();

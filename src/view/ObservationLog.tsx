@@ -8,6 +8,7 @@
  * whatever it is given.
  */
 
+import type { JSX } from 'react';
 import type { Spell } from '../combat/types';
 import { KIND_CLASS, OUTCOME_CLASS, OUTCOME_LABEL } from './colors';
 

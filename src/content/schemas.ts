@@ -107,8 +107,9 @@ const EnemyBaseSchema = z.object({
 export const EnemySchema = EnemyBaseSchema.superRefine((enemy, ctx) => {
   // 1) Phases ordered by strictly decreasing hpThreshold.
   for (let i = 1; i < enemy.phases.length; i++) {
-    const prev = enemy.phases[i - 1]!;
-    const cur = enemy.phases[i]!;
+    const prev = enemy.phases[i - 1];
+    const cur = enemy.phases[i];
+    if (!prev || !cur) continue;
     if (!(cur.hpThreshold < prev.hpThreshold)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

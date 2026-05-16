@@ -49,9 +49,12 @@ function parseColor(css: string): [number, number, number, number] {
   if (css === 'transparent') return [0, 0, 0, 0];
   if (css.startsWith('#')) {
     if (css.length === 4) {
-      const r = parseInt(css[1]! + css[1]!, 16);
-      const g = parseInt(css[2]! + css[2]!, 16);
-      const b = parseInt(css[3]! + css[3]!, 16);
+      const c1 = css[1] ?? '0';
+      const c2 = css[2] ?? '0';
+      const c3 = css[3] ?? '0';
+      const r = parseInt(c1 + c1, 16);
+      const g = parseInt(c2 + c2, 16);
+      const b = parseInt(c3 + c3, 16);
       return [r, g, b, 255];
     }
     if (css.length === 7) {
@@ -120,14 +123,14 @@ function makeCtx(canvas: HTMLCanvasElement): Ctx {
           if (tx < 0 || ty < 0 || tx >= dstW || ty >= dstH) continue;
           const si = (sy * sw + sx) * 4;
           const ti = (ty * dstW + tx) * 4;
-          const sa = srcCtx.__pixels[si + 3]!;
+          const sa = srcCtx.__pixels[si + 3] ?? 0;
           if (sa === 0) continue;
           // Source-over compositing assuming opaque source pixels.
           // Sprite pixels are either fully opaque or fully transparent, so
           // we just overwrite.
-          this.__pixels[ti] = srcCtx.__pixels[si]!;
-          this.__pixels[ti + 1] = srcCtx.__pixels[si + 1]!;
-          this.__pixels[ti + 2] = srcCtx.__pixels[si + 2]!;
+          this.__pixels[ti] = srcCtx.__pixels[si] ?? 0;
+          this.__pixels[ti + 1] = srcCtx.__pixels[si + 1] ?? 0;
+          this.__pixels[ti + 2] = srcCtx.__pixels[si + 2] ?? 0;
           this.__pixels[ti + 3] = sa;
         }
       }
@@ -141,10 +144,10 @@ function makeCtx(canvas: HTMLCanvasElement): Ctx {
           const sy = y + yy;
           const si = (sy * cw + sx) * 4;
           const ti = (yy * gw + xx) * 4;
-          out[ti] = this.__pixels[si]!;
-          out[ti + 1] = this.__pixels[si + 1]!;
-          out[ti + 2] = this.__pixels[si + 2]!;
-          out[ti + 3] = this.__pixels[si + 3]!;
+          out[ti] = this.__pixels[si] ?? 0;
+          out[ti + 1] = this.__pixels[si + 1] ?? 0;
+          out[ti + 2] = this.__pixels[si + 2] ?? 0;
+          out[ti + 3] = this.__pixels[si + 3] ?? 0;
         }
       }
       return { data: out };
