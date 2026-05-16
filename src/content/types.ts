@@ -1,37 +1,24 @@
 /**
  * Content-context types: Enemy, Phase, SeedSpell.
  *
- * These are placeholder TypeScript interfaces that the content agent will
- * convert to Zod-inferred types — see src/content/CONTEXT.md and
- * src/content/docs/adr/0001-yaml-data-zod.md. The shape must match exactly;
- * type-driven development means runtime validation and compile-time types
- * are one source of truth.
+ * These types are derived from the Zod schemas in `./schemas.ts` — the
+ * schemas are the single source of truth (see
+ * `src/content/docs/adr/0001-yaml-data-zod.md`). The shape here matches the
+ * downstream-consumer expectations established by the placeholder interfaces
+ * that previously lived in this file; downstream contexts (`combat`, `run`,
+ * `view`, `app`) keep importing from this path.
  *
- * Consumers outside `content/` import these types only.
+ * Consumers outside `content/` import these types only; they do NOT reach
+ * into `./schemas.ts`.
  */
 
-import type { Attack, EnemyId, HP, Score } from '../run/types';
-import type { Kind, PatternSrc } from '../combat/types';
+import type { z } from 'zod';
+import type {
+  EnemySchema,
+  PhaseSchema,
+  SpellSchema,
+} from './schemas';
 
-export type Phase = {
-  readonly hpThreshold: number;
-  readonly attack: Attack;
-  readonly realPool: readonly string[];
-  readonly decoyPool: readonly string[];
-};
-
-export type SeedSpell = {
-  readonly text: string;
-  readonly kind: Kind;
-};
-
-export type Enemy = {
-  readonly id: EnemyId;
-  readonly name: string;
-  readonly pattern: PatternSrc;
-  readonly baseHp: HP;
-  readonly defeatBounty: Score;
-  readonly flawlessBonus: Score;
-  readonly phases: readonly Phase[];
-  readonly seedSpells: readonly SeedSpell[];
-};
+export type Phase = z.infer<typeof PhaseSchema>;
+export type SeedSpell = z.infer<typeof SpellSchema>;
+export type Enemy = z.infer<typeof EnemySchema>;

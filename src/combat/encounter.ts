@@ -1,0 +1,217 @@
+/**
+ * Encounter sim: pure state machine producing one EncounterEvent per step.
+ *
+ * Determinism contract — given (enemy, player, seed, ward), the entire event
+ * trace is reproducible. The encounter.test.ts property tests depend on this.
+ *
+ * Spell selection (per step):
+ *   We seed a step-local PRNG from (state.seed, currentPhaseIdx, stepCount)
+ *   via a small mixing function. The first draw decides Real vs Decoy
+ *   (~50/50 — if the chosen pool is empty we fall back to the other pool).
+ *   The second draw picks an index into the chosen pool.
+ *
+ *   This is functionally equivalent to "shuffle each pool once per phase
+ *   entry and step through it" for the purposes of the determinism property,
+ *   and is simpler because we don't have to carry shuffled-pool state in
+ *   EncounterState.
+ *
+ * Phase advancement:
+ *   Each Phase has an hpThreshold expressed as a fraction of enemyMaxHp.
+ *   When applying damage drops enemyHp at or below the *next* phase's
+ *   threshold (and the enemy is still alive), we emit PhaseAdvanced for
+ *   that step INSTEAD of SpellResolved, advance currentPhaseIdx, and the
+ *   damage from the spell is still applied to enemyHp.
+ *
+ * Encounter end:
+ *   playerHp <= 0 → EncounterEnded { result: 'Defeat' }.
+ *   enemyHp  <= 0 → EncounterEnded { result: 'Victory' }.
+ *   Encounter end takes priority over phase advance.
+ */
+
+import type { Enemy } from '../content/types';
+import type { Attack, HP, PlayerProfile } from '../run/types';
+import { attack as mkAttack, hp as mkHp } from '../run/types';
+import { mulberry32 } from './rng';
+import { damageDelta, resolveSpell } from './spell';
+import type { EncounterEvent, EncounterState, Spell } from './types';
+
+export function startEncounter(params: {
+  enemy: Enemy;
+  player: PlayerProfile;
+  seed: number;
+}): EncounterState {
+  const { enemy, player, seed } = params;
+  const pattern = new RegExp(enemy.pattern as string);
+  return {
+    enemyId: enemy.id as string,
+    pattern,
+    phases: enemy.phases.map((p) => ({
+      hpThreshold: p.hpThreshold,
+      attack: p.attack,
+      realPool: p.realPool,
+      decoyPool: p.decoyPool,
+    })),
+    currentPhaseIdx: 0,
+    playerMaxHp: player.baseHp,
+    enemyMaxHp: enemy.baseHp,
+    playerHp: player.baseHp,
+    enemyHp: enemy.baseHp,
+    playerAttack: player.baseAttack,
+    seed,
+    stepCount: 0,
+    damageTakenThisAttempt: 0,
+  };
+}
+
+/**
+ * Mix three integers into a 32-bit seed. Order-sensitive, deterministic.
+ */
+function mixSeed(a: number, b: number, c: number): number {
+  let h = (a | 0) ^ Math.imul(b | 0, 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  h ^= Math.imul(c | 0, 0x27d4eb2d);
+  h ^= h >>> 16;
+  return h | 0;
+}
+
+function pickSpell(state: EncounterState): Spell {
+  const phase = state.phases[state.currentPhaseIdx];
+  if (!phase) {
+    throw new Error(
+      `encounter: currentPhaseIdx ${state.currentPhaseIdx} out of bounds`,
+    );
+  }
+  const stepRng = mulberry32(mixSeed(state.seed, state.currentPhaseIdx, state.stepCount));
+  const kindDraw = stepRng();
+  const indexDraw = stepRng();
+
+  const wantReal = kindDraw < 0.5;
+  const primary = wantReal ? phase.realPool : phase.decoyPool;
+  const fallback = wantReal ? phase.decoyPool : phase.realPool;
+  const pool = primary.length > 0 ? primary : fallback;
+  if (pool.length === 0) {
+    throw new Error(
+      `encounter: phase ${state.currentPhaseIdx} has empty realPool and decoyPool`,
+    );
+  }
+  const idx = Math.floor(indexDraw * pool.length);
+  const text = pool[idx] ?? pool[0]!;
+  const kind: Spell['kind'] = pool === phase.realPool ? 'Real' : 'Decoy';
+  return { text, kind };
+}
+
+/**
+ * Returns the highest phase index whose hpThreshold is satisfied by the given
+ * enemyHp/enemyMaxHp ratio, starting from currentIdx. Used to decide whether
+ * to advance phase. We only advance forward — never regress.
+ *
+ * A phase with hpThreshold = t becomes "current" once enemyHp/enemyMaxHp <= t.
+ * Phase 0 typically has hpThreshold 1.0 (active from start).
+ */
+function nextPhaseIdxFor(
+  phases: EncounterState['phases'],
+  currentIdx: number,
+  enemyHp: number,
+  enemyMaxHp: number,
+): number {
+  const ratio = enemyMaxHp > 0 ? enemyHp / enemyMaxHp : 0;
+  let idx = currentIdx;
+  while (idx + 1 < phases.length) {
+    const candidate = phases[idx + 1];
+    if (!candidate) break;
+    if (ratio <= candidate.hpThreshold) {
+      idx += 1;
+    } else {
+      break;
+    }
+  }
+  return idx;
+}
+
+export function stepEncounter(
+  state: EncounterState,
+  ward: RegExp,
+): { state: EncounterState; event: EncounterEvent } {
+  // Pick the spell deterministically.
+  const spell = pickSpell(state);
+  const outcome = resolveSpell(spell, ward);
+
+  const phase = state.phases[state.currentPhaseIdx]!;
+  const enemyAttackForPhase: Attack = phase.attack;
+  const { playerHpDelta, enemyHpDelta } = damageDelta(
+    outcome,
+    state.playerAttack,
+    enemyAttackForPhase,
+  );
+
+  const newPlayerHpRaw = (state.playerHp as number) + playerHpDelta;
+  const newEnemyHpRaw = (state.enemyHp as number) + enemyHpDelta;
+  const newPlayerHp: HP = mkHp(Math.max(0, newPlayerHpRaw));
+  const newEnemyHp: HP = mkHp(Math.max(0, newEnemyHpRaw));
+  const damageTakenThisStep = playerHpDelta < 0 ? -playerHpDelta : 0;
+  const newDamageTaken = state.damageTakenThisAttempt + damageTakenThisStep;
+
+  const baseNextState: EncounterState = {
+    ...state,
+    playerHp: newPlayerHp,
+    enemyHp: newEnemyHp,
+    stepCount: state.stepCount + 1,
+    damageTakenThisAttempt: newDamageTaken,
+  };
+
+  // Encounter end takes priority.
+  if ((newPlayerHp as number) <= 0) {
+    return {
+      state: baseNextState,
+      event: {
+        tag: 'EncounterEnded',
+        result: 'Defeat',
+        damageTakenThisAttempt: newDamageTaken,
+      },
+    };
+  }
+  if ((newEnemyHp as number) <= 0) {
+    return {
+      state: baseNextState,
+      event: {
+        tag: 'EncounterEnded',
+        result: 'Victory',
+        damageTakenThisAttempt: newDamageTaken,
+      },
+    };
+  }
+
+  // Phase advance: if the new HP crosses into the next phase's band.
+  const newPhaseIdx = nextPhaseIdxFor(
+    state.phases,
+    state.currentPhaseIdx,
+    newEnemyHp as number,
+    state.enemyMaxHp as number,
+  );
+  if (newPhaseIdx !== state.currentPhaseIdx) {
+    const advancedState: EncounterState = {
+      ...baseNextState,
+      currentPhaseIdx: newPhaseIdx,
+    };
+    return {
+      state: advancedState,
+      event: { tag: 'PhaseAdvanced', phaseIdx: newPhaseIdx },
+    };
+  }
+
+  // Otherwise normal spell-resolved event.
+  return {
+    state: baseNextState,
+    event: {
+      tag: 'SpellResolved',
+      spell,
+      outcome,
+      playerHp: newPlayerHp,
+      enemyHp: newEnemyHp,
+    },
+  };
+}
+
+// Re-export branded constructors so consumers don't need to know which module
+// owns them. Avoids tempting view/run code to drill into combat internals.
+export { mkAttack, mkHp };

@@ -1,0 +1,66 @@
+# Tutorial Enemy — first fight of the game.
+#
+# True Pattern: ^[a-z]+\d{2,3}$
+#   "one or more lowercase letters, then 2 or 3 digits, nothing else."
+#
+# Authoring goals:
+#   Phase 1 teaches the *coarse shape*: "letters then digits, anchored".
+#     Several almost-right Wards survive Phase 1 — e.g. ^[a-z]+\d+$
+#     (matches any digit count), ^\w+$ (allows uppercase + underscore),
+#     ^[a-z]+\d{2}$ (fixed two digits). Phase-1 sample is intentionally
+#     ambiguous between these.
+#
+#   Phase 2 teaches the *digit-count and character-class boundaries*:
+#     decoys are specifically the strings the plausibly-wrong Wards from
+#     Phase 1 would *fail* on:
+#       - `cat1`        (1 digit) — kills ^[a-z]+\d+$ over-broadness
+#       - `cat1234`     (4 digits) — kills ^[a-z]+\d+$ over-broadness
+#       - `Cat12`       (uppercase) — kills ^\w+$ over-broadness
+#       - `cat_12`      (underscore) — kills ^\w+$ over-broadness
+#     and reals push on the {2,3} boundary itself (`zoo10`, `pig999`).
+
+id: tutorial
+name: The First Lexer
+pattern: '^[a-z]+\d{2,3}$'
+
+baseHp: 4
+defeatBounty: 10
+flawlessBonus: 5
+# baseHp tuned for the counterattack-only damage model: only Captures
+# (Real spells the Ward matches) damage the enemy; Decoys never do. Half
+# the spell stream is Decoys, so the expected ticks-to-win is ~2 × baseHp.
+
+phases:
+  # Phase 1 — coarse shape. Several plausible Wards pass here.
+  - hpThreshold: 1.0
+    attack: 1
+    realPool:
+      - cat12
+      - dog99
+      - fish123
+    decoyPool:
+      - 12cat        # digits-first — wrong order
+      - meow         # no digits
+      - cat-12       # punctuation breaks the simple shape
+
+  # Phase 2 — distinguishing edge cases. The decoys here are the strings
+  # that survive the most common Phase-1-plausible Wards.
+  - hpThreshold: 0.5
+    attack: 2
+    realPool:
+      - zoo10        # exactly the 2-digit lower boundary
+      - pig999       # exactly the 3-digit upper boundary
+      - apple42
+    decoyPool:
+      - cat1         # 1 digit  — defeats ^[a-z]+\d+$
+      - cat1234      # 4 digits — defeats ^[a-z]+\d+$
+      - Cat12        # uppercase — defeats ^\w+$
+      - cat_12       # underscore — defeats ^\w+$
+
+# Seed Spells: 2 Reals + 2 Decoys drawn from Phase 1 only, so the prep
+# screen suggests the shape without spoiling the Phase-2 edge cases.
+seedSpells:
+  - { text: cat12, kind: Real }
+  - { text: dog99, kind: Real }
+  - { text: 12cat, kind: Decoy }
+  - { text: meow, kind: Decoy }

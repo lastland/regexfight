@@ -52,6 +52,8 @@ type Outcome = 'Capture' | 'Hit' | 'FalseCapture' | 'Dodge';
 - **FalseCapture** — fooled by a Decoy. Deals `enemy.attack` damage to the Player (symmetric with Hit).
 - **Dodge** — correctly rejected a Decoy. No damage.
 
+**Counterattack-only damage model**: the Player has no separate attack action. The Player damages the Enemy *only* by Capturing a Real Spell — the Ward catches the Enemy's incoming attack and reflects it. Decoys are *not* real attacks, so even matching them (FalseCapture) does not damage the Enemy; the Enemy never takes damage from a Decoy. Practical consequence for content authors: enemy `baseHp` should be tuned to the Real-spell rate of the spell stream, not its total length. With a ~50/50 Real/Decoy mix, expected ticks-to-win is ~`2 × baseHp / player.attack`.
+
 ### Phase
 A stage of an Encounter. Each Phase carries its own Spell pool (Reals + Decoys, both consistent with the Enemy's single Pattern) and its own `attack` value. Phases transition at HP thresholds.
 

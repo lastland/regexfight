@@ -1,0 +1,5 @@
+# Base Player stats. Soul-like fragility: small HP pool, base damage of 1.
+# A flawless Encounter is genuinely flawless; a single miss removes a third
+# of the player's life.
+baseHp: 3
+baseAttack: 1
