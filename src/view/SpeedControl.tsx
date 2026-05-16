@@ -6,6 +6,7 @@
  * listener (so the control works even when this button isn't focused).
  */
 
+import type { JSX } from 'react';
 import type { SpeedMultiplier } from './useSpeedMultiplier';
 
 export type SpeedControlProps = {

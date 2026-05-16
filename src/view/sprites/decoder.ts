@@ -54,7 +54,9 @@ export function decodePixelArt(
   }
 
   const height = lines.length;
-  const width = lines[0]!.length;
+  const firstLine = lines[0];
+  if (firstLine === undefined) throw new Error('decodePixelArt: empty template');
+  const width = firstLine.length;
 
   if (width === 0) {
     throw new Error('decodePixelArt: zero-width row');
@@ -64,7 +66,8 @@ export function decodePixelArt(
   const paletteSlots = new Set<string>();
 
   for (let y = 0; y < height; y++) {
-    const row = lines[y]!;
+    const row = lines[y];
+    if (row === undefined) throw new Error(`decodePixelArt: missing row ${String(y)}`);
     if (row.length !== width) {
       throw new Error(
         `decodePixelArt: row ${y} has width ${row.length}, expected ${width} (sprite must be rectangular)`,
@@ -72,7 +75,8 @@ export function decodePixelArt(
     }
     const rowPixels: string[] = [];
     for (let x = 0; x < width; x++) {
-      const ch = row[x]!;
+      const ch = row[x];
+      if (ch === undefined) throw new Error(`decodePixelArt: row ${String(y)}, col ${String(x)}: missing character`);
       const color = palette[ch];
       if (color === undefined) {
         throw new Error(

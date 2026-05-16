@@ -196,7 +196,7 @@ export function App(props: AppProps = {}) {
       if (event.tag === 'EncounterEnded') {
         endedRef.current = true;
         const commit = commitEncounterEndRef.current;
-        window.setTimeout(() => commit(nextEvents), END_PAUSE_MS);
+        window.setTimeout(() => { commit(nextEvents); }, END_PAUSE_MS);
         return { ...prev, sim: state, events: nextEvents, ended: true };
       }
       return { ...prev, sim: state, events: nextEvents };

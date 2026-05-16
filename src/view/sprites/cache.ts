@@ -98,9 +98,11 @@ function rasterize(
   }
   ctx.imageSmoothingEnabled = false;
   for (let y = 0; y < sprite.height; y++) {
-    const row = sprite.pixels[y]!;
+    const row = sprite.pixels[y];
+    if (!row) throw new Error(`rasterize: missing pixel row ${String(y)}`);
     for (let x = 0; x < sprite.width; x++) {
-      const cell = row[x]!;
+      const cell = row[x];
+      if (!cell) throw new Error(`rasterize: missing pixel cell (${String(x)}, ${String(y)})`);
       if (cell === 'transparent') continue;
       const color = cell.startsWith('@') ? resolveSlot(cell.slice(1)) : cell;
       ctx.fillStyle = color;
