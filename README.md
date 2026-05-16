@@ -25,7 +25,7 @@ npm run test:watch   # vitest in watch mode
 
 ## How to play (v1)
 
-1. **Prep Screen.** The Observation Log shows a few seed spells with their Kind (green = Real, red = Decoy). Type a regex into the Ward editor. Anchors matter — the engine uses plain `RegExp.prototype.test()`, so a Ward like `/dragon\d+/` will match the decoy `Xdragon42Y`. Use `^...$` if you mean end-to-end. The `i` flag toggle is supported; other flags are not.
+1. **Prep Screen.** Before your first fight against an Enemy, the section is labelled **Foresight (clairvoyance)** — you glimpse a few seed spells with their Kind (green = Real, red = Decoy). After your first resolved Attempt against that Enemy, the section becomes the persistent **Observation Log** of everything you've seen so far. Type a regex into the Ward editor; the engine matches it end-to-end (`^(?:your-source)$`), so you can just write the body. The `i` flag toggle is supported; other flags are not. See the **Supported syntax** disclosure under the Ward editor for the curated v1 feature set.
 2. **Start encounter.** Combat plays out automatically — spells fly across the canvas, your HP drops on Hits and FalseCaptures, the enemy's HP drops on Captures. The Ward cannot be edited during combat.
 3. **Post-mortem.** You see every spell you faced this attempt, grouped by Outcome (Capture / Hit / False Capture / Dodge) and what it cost. Retry (always available) or Advance (only on Victory).
 4. **Repeat.** Spells you've seen accumulate in the Observation Log across deaths. Use them to infer the underlying Pattern. The tutorial enemy has two phases — later phases reveal *distinguishing edge cases* designed to expose almost-right Wards.

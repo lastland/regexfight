@@ -17,11 +17,19 @@ export type PrepScreenProps = {
   enemy: Enemy;
   observationLog: readonly Spell[];
   progressScore: Score;
+  // True before the player's first resolved Attempt against this Enemy.
+  // Flips the seed-spell section to the clairvoyant-foresight framing;
+  // becomes false forever after the first attempt completes.
+  foresight: boolean;
   onStartEncounter: (ward: RegExp) => void;
 };
 
 export function PrepScreen(props: PrepScreenProps): JSX.Element {
-  const { enemy, observationLog, progressScore, onStartEncounter } = props;
+  const { enemy, observationLog, progressScore, foresight, onStartEncounter } =
+    props;
+
+  const sectionLabel = foresight ? 'Foresight section' : 'Observation log section';
+  const heading = foresight ? 'Foresight (clairvoyance)' : 'Observation log';
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6 text-zinc-100">
@@ -38,13 +46,17 @@ export function PrepScreen(props: PrepScreenProps): JSX.Element {
         </div>
       </header>
 
-      <section
-        aria-label="Observation log section"
-        className="flex flex-col gap-2"
-      >
+      <section aria-label={sectionLabel} className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
-          Observation log
+          {heading}
         </h2>
+        {foresight ? (
+          <p className="text-sm italic text-zinc-400">
+            You haven&apos;t faced this enemy yet. Your clairvoyance reveals a
+            few of the strings it will weave — Real spells and Decoys both.
+            Study them; the rest you&apos;ll learn by dying.
+          </p>
+        ) : null}
         <ObservationLog log={observationLog} />
       </section>
 

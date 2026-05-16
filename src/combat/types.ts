@@ -14,7 +14,7 @@ export type Spell = {
   readonly kind: Kind;
 };
 
-export type Outcome = 'Capture' | 'Hit' | 'FalseCapture' | 'Dodge';
+export type Outcome = 'Counterattack' | 'Hit' | 'Backfire' | 'Dodge';
 
 export type EncounterEvent =
   | {

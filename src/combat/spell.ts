@@ -1,25 +1,31 @@
 /**
  * Per-spell resolution and damage delta.
  *
- * resolveSpell uses JavaScript's default partial-match semantics
- * (ward.test(spell.text)) per ADR-0003 — the player is expected to write
- * `^...$` themselves to express end-to-end intent. The engine never
- * auto-anchors.
+ * resolveSpell tests the Ward end-to-end against the Spell text (full match).
+ * The engine wraps the Ward as `^(?:source)$` at resolution time, so the
+ * player can just write the body. Player-typed `^`/`$` remain valid (they
+ * become redundant inner anchors); see the Amendment in
+ * `docs/adr/0003-full-anchored-match.md`.
  *
- * Damage is symmetric: Hit and FalseCapture both deal `enemyAttack` to the
- * player; Capture deals `attackerAttack` to the enemy; Dodge does nothing.
+ * Damage is symmetric: Hit and Backfire both deal `enemyAttack` to the
+ * player; Counterattack deals `attackerAttack` to the enemy; Dodge does nothing.
  */
 
 import type { Attack } from '../run/types';
 import type { Outcome, Spell } from './types';
 
+function fullMatch(ward: RegExp, text: string): boolean {
+  const anchored = new RegExp(`^(?:${ward.source})$`, ward.flags);
+  return anchored.test(text);
+}
+
 export function resolveSpell(spell: Spell, ward: RegExp): Outcome {
-  const matches = ward.test(spell.text);
+  const matches = fullMatch(ward, spell.text);
   if (spell.kind === 'Real') {
-    return matches ? 'Capture' : 'Hit';
+    return matches ? 'Counterattack' : 'Hit';
   }
   // spell.kind === 'Decoy'
-  return matches ? 'FalseCapture' : 'Dodge';
+  return matches ? 'Backfire' : 'Dodge';
 }
 
 export function damageDelta(
@@ -28,10 +34,10 @@ export function damageDelta(
   enemyAttack: Attack,
 ): { playerHpDelta: number; enemyHpDelta: number } {
   switch (outcome) {
-    case 'Capture':
+    case 'Counterattack':
       return { playerHpDelta: 0, enemyHpDelta: -(attackerAttack as number) };
     case 'Hit':
-    case 'FalseCapture':
+    case 'Backfire':
       return { playerHpDelta: -(enemyAttack as number), enemyHpDelta: 0 };
     case 'Dodge':
       return { playerHpDelta: 0, enemyHpDelta: 0 };

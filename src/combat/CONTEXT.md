@@ -16,6 +16,8 @@ The player's regular expression. Submitted at the prep screen, **frozen** for th
 
 Type: `RegExp` (constructed from a `WardSrc` string after syntax validation).
 
+**Match semantics.** The engine tests the Ward end-to-end (full match) against each Spell — it wraps the Ward as `^(?:source)$` at resolution time. The player just writes the body; player-typed `^`/`$` are accepted but redundant. See the Amendment in `docs/adr/0003-full-anchored-match.md`.
+
 ### Spell
 A single string emitted by an Enemy. Has both a `text` and a `kind`.
 
@@ -36,23 +38,23 @@ type Kind = 'Real' | 'Decoy';
 A Spell's Kind is a fixed property of the Spell as authored; it is rendered to the player live (color-coded). Truth here is not a secret — what's a puzzle is the *Pattern*.
 
 ### Outcome
-The result of testing a Ward against a single Spell. Four cases, partitioned by Kind × Ward-matches:
+The result of testing a Ward against a single Spell. Four cases, partitioned by Kind × Ward-matches. The names are *narrative-effect* names (what happens in the fiction) rather than matching-semantics names — see `docs/adr/0005-outcome-rename-counterattack.md`.
 
 ```ts
-type Outcome = 'Capture' | 'Hit' | 'FalseCapture' | 'Dodge';
+type Outcome = 'Counterattack' | 'Hit' | 'Backfire' | 'Dodge';
 ```
 
-|              | Ward matches | Ward rejects |
-|--------------|--------------|--------------|
-| Spell is Real  | **Capture**  | **Hit**       |
-| Spell is Decoy | **FalseCapture** | **Dodge**     |
+|              | Ward matches      | Ward rejects |
+|--------------|-------------------|--------------|
+| Spell is Real  | **Counterattack** | **Hit**       |
+| Spell is Decoy | **Backfire**      | **Dodge**     |
 
-- **Capture** — correct match against a Real. Deals `player.attack` damage to the Enemy.
-- **Hit** — missed a Real. Deals `enemy.attack` damage to the Player.
-- **FalseCapture** — fooled by a Decoy. Deals `enemy.attack` damage to the Player (symmetric with Hit).
-- **Dodge** — correctly rejected a Decoy. No damage.
+- **Counterattack** — correct match against a Real Spell. The Ward catches the Enemy's incoming attack and reflects it back; deals `player.attack` damage to the Enemy.
+- **Hit** — missed a Real Spell. The Enemy's attack lands; deals `enemy.attack` damage to the Player.
+- **Backfire** — fooled by a Decoy. The Ward "tries to catch" a feint and the trap springs; deals `enemy.attack` damage to the Player (symmetric with Hit).
+- **Dodge** — correctly rejected a Decoy. No damage; the Decoy phases past.
 
-**Counterattack-only damage model**: the Player has no separate attack action. The Player damages the Enemy *only* by Capturing a Real Spell — the Ward catches the Enemy's incoming attack and reflects it. Decoys are *not* real attacks, so even matching them (FalseCapture) does not damage the Enemy; the Enemy never takes damage from a Decoy. Practical consequence for content authors: enemy `baseHp` should be tuned to the Real-spell rate of the spell stream, not its total length. With a ~50/50 Real/Decoy mix, expected ticks-to-win is ~`2 × baseHp / player.attack`.
+**Counterattack-only damage model**: the Player has no separate attack action. The Player damages the Enemy *only* by Counterattacking a Real Spell — the Ward catches the Enemy's incoming attack and reflects it. Decoys are *not* real attacks, so even matching them (Backfire) does not damage the Enemy; the Enemy never takes damage from a Decoy. Practical consequence for content authors: enemy `baseHp` should be tuned to the Real-spell rate of the spell stream, not its total length. With a ~50/50 Real/Decoy mix, expected ticks-to-win is ~`2 × baseHp / player.attack`.
 
 ### Phase
 A stage of an Encounter. Each Phase carries its own Spell pool (Reals + Decoys, both consistent with the Enemy's single Pattern) and its own `attack` value. Phases transition at HP thresholds.

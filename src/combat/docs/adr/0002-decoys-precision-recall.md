@@ -13,7 +13,7 @@ The game needs a mechanism that forces the Ward to be *tight* enough to discrimi
 
 **Each Enemy emits two kinds of Spells: Real Spells (strings matching the Pattern, which the Ward must match) and Decoy Spells (strings that do NOT match the Pattern, which the Ward must reject).** Both kinds appear in the live spell stream during an Encounter; their Kind is rendered to the player via color coding.
 
-The four per-spell Outcomes (Capture, Hit, FalseCapture, Dodge) follow directly from the cross of Kind × Ward-matches.
+The four per-spell Outcomes (Counterattack, Hit, Backfire, Dodge) follow directly from the cross of Kind × Ward-matches. (These were originally named Capture / Hit / FalseCapture / Dodge; ADR-0005 renamed them to narrative-effect names.)
 
 This makes the player's task literally *precision and recall*: their Ward must achieve high recall (catch all Reals) AND high precision (reject all Decoys). Either failure mode is fatal.
 
@@ -21,7 +21,7 @@ This makes the player's task literally *precision and recall*: their Ward must a
 
 **Positive:**
 
-- Trivial regexes are unsafe by construction. `/.*/`  matches every Decoy → FalseCapture damage every Spell → fast death. A regex with high recall but low precision dies. A regex with high precision but low recall dies. Only correct-shape Wards survive.
+- Trivial regexes are unsafe by construction. `/.*/`  matches every Decoy → Backfire damage every Spell → fast death. A regex with high recall but low precision dies. A regex with high precision but low recall dies. Only correct-shape Wards survive.
 - The game maps cleanly to real cognitive science. "Pattern inference from positive *and* negative examples" is the active-learning setting; the player is doing genuinely useful brain work.
 - Decoys are dirt cheap to author: just include strings adjacent-to-but-not-matching the pattern (off-by-one length, near-miss character class, etc.) in the Decoy pool.
 - The visual design gets a natural dichotomy — two distinguishable spell kinds on screen, which is good for readability.
@@ -29,7 +29,7 @@ This makes the player's task literally *precision and recall*: their Ward must a
 **Negative:**
 
 - Authoring effort per Enemy doubles, in expectation: every Phase needs a Real pool *and* a Decoy pool. Mitigated by the fact that Decoys are usually small perturbations of Reals, so authoring is fast.
-- Damage symmetry (Hit and FalseCapture both deal `enemy.attack`) is a calibration choice. See the v1 calibration in `~/.claude/plans/i-want-to-design-drifting-origami.md`. Asymmetric punishment was considered and rejected in `combat/docs/adr/0001-ward-frozen-during-encounter.md` discussions; the user confirmed symmetric.
+- Damage symmetry (Hit and Backfire both deal `enemy.attack`) is a calibration choice. See the v1 calibration in `~/.claude/plans/i-want-to-design-drifting-origami.md`. Asymmetric punishment was considered and rejected in `combat/docs/adr/0001-ward-frozen-during-encounter.md` discussions; the user confirmed symmetric.
 - Players unfamiliar with regex must learn that *not matching* is also a goal, not just *matching*. The Seed Spells (with Kind labels visible from the start) make this discoverable on the very first prep screen.
 
 ## Alternatives considered
@@ -45,12 +45,13 @@ Only Real Spells, full-anchored. Anti-cheese comes from spells of varying length
 **Why not:** `/.*/`  still wins — it matches any length. Even `/^.*$/` matches every spell. Decoys are the principled solution; this option papers over the problem.
 
 ### C. Positives only, with a "match count" penalty
-Each Capture is penalty-free; the Ward is silently scored against an oracle's specificity and at-end-of-encounter the player takes residual damage proportional to over-generality.
+Each Counterattack is penalty-free; the Ward is silently scored against an oracle's specificity and at-end-of-encounter the player takes residual damage proportional to over-generality.
 
-**Why not:** Hidden math. The player can't see why they're losing HP — feels arbitrary. Decoys are *visible*; the player sees the FalseCapture happen and learns from it immediately.
+**Why not:** Hidden math. The player can't see why they're losing HP — feels arbitrary. Decoys are *visible*; the player sees the Backfire happen and learns from it immediately.
 
 ## See also
 
-- `src/combat/CONTEXT.md` — Outcome table; Capture / Hit / FalseCapture / Dodge definitions.
+- `src/combat/CONTEXT.md` — Outcome table; Counterattack / Hit / Backfire / Dodge definitions.
+- `src/combat/docs/adr/0005-outcome-rename-counterattack.md` — the vocabulary refinement (`Capture` → `Counterattack`, `FalseCapture` → `Backfire`).
 - `src/combat/docs/adr/0003-full-anchored-match.md` — the match-semantics ADR; complements this one.
 - `src/content/CONTEXT.md` — Phase Pool, authoring conventions for Decoy pools.

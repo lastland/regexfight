@@ -11,7 +11,7 @@ import type { Enemy } from '../content/types';
 import type { Outcome } from './types';
 
 export function scoreFromOutcome(outcome: Outcome, playerAttack: Attack): Score {
-  if (outcome === 'Capture') {
+  if (outcome === 'Counterattack') {
     return score(playerAttack as number);
   }
   return score(0);

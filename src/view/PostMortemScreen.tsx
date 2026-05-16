@@ -21,19 +21,23 @@ export type PostMortemScreenProps = {
   result: 'Victory' | 'Defeat';
   scoreEarned: Score;
   damageTakenThisAttempt: number;
+  // True exactly once per Run: on the post-mortem of the player's first
+  // Defeat. Renders the soul-like "you can learn from this" framing above
+  // the result header.
+  isFirstDeath?: boolean;
   onRetry: () => void;
   onAdvance?: () => void;
 };
 
-const OUTCOME_ORDER: Outcome[] = ['Capture', 'Dodge', 'Hit', 'FalseCapture'];
+const OUTCOME_ORDER: Outcome[] = ['Counterattack', 'Dodge', 'Hit', 'Backfire'];
 
 function groupByOutcome(
   entries: readonly AttemptLogEntry[],
 ): Record<Outcome, AttemptLogEntry[]> {
   const groups: Record<Outcome, AttemptLogEntry[]> = {
-    Capture: [],
+    Counterattack: [],
     Hit: [],
-    FalseCapture: [],
+    Backfire: [],
     Dodge: [],
   };
   for (const e of entries) {
@@ -49,6 +53,7 @@ export function PostMortemScreen(props: PostMortemScreenProps): JSX.Element {
     result,
     scoreEarned,
     damageTakenThisAttempt,
+    isFirstDeath,
     onRetry,
     onAdvance,
   } = props;
@@ -56,9 +61,23 @@ export function PostMortemScreen(props: PostMortemScreenProps): JSX.Element {
   const groups = groupByOutcome(attemptLog);
   const flawless = result === 'Victory' && damageTakenThisAttempt === 0;
   const advanceEnabled = result === 'Victory' && onAdvance !== undefined;
+  const showFirstDeathCallout = isFirstDeath === true && result === 'Defeat';
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6 text-zinc-100">
+      {showFirstDeathCallout ? (
+        <aside
+          role="note"
+          aria-label="First-death message"
+          className="rounded border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200"
+        >
+          <p className="font-semibold">You died.</p>
+          <p className="mt-1 text-sm">
+            But your special ability lets you learn from mistakes. Review what
+            happened below and come back.
+          </p>
+        </aside>
+      ) : null}
       <header className="flex flex-col items-center gap-2 border-b border-zinc-700 pb-4">
         <h1
           className={`text-4xl font-bold ${

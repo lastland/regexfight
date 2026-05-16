@@ -22,7 +22,27 @@ export function createRun(enemies: Enemy[], player: PlayerProfile): Run {
     progressScore: score(0),
     observationLogs: {},
     visited: {},
+    enemyAttemptCounts: {},
+    deathCount: 0,
     player,
+  };
+}
+
+/**
+ * Bump the per-enemy attempt counter and (on defeat) the run-wide death
+ * counter. Called once per resolved Encounter.
+ */
+export function recordAttempt(
+  run: Run,
+  enemyId: EnemyId,
+  result: 'Victory' | 'Defeat',
+): Run {
+  const key = enemyId as unknown as string;
+  const prevCount = run.enemyAttemptCounts[key] ?? 0;
+  return {
+    ...run,
+    enemyAttemptCounts: { ...run.enemyAttemptCounts, [key]: prevCount + 1 },
+    deathCount: run.deathCount + (result === 'Defeat' ? 1 : 0),
   };
 }
 
@@ -95,7 +115,7 @@ export function summariseAttempt(
   enemy: Enemy,
   playerAttack: Attack,
 ): AttemptSummary {
-  let captureCount = 0;
+  let counterattackCount = 0;
   let result: 'Victory' | 'Defeat' | null = null;
   let damageTakenThisAttempt = 0;
   const attemptSpells: Spell[] = [];
@@ -105,7 +125,7 @@ export function summariseAttempt(
     if (ev.tag === 'SpellResolved') {
       attemptSpells.push(ev.spell);
       attemptLog.push({ spell: ev.spell, outcome: ev.outcome });
-      if (ev.outcome === 'Capture') captureCount++;
+      if (ev.outcome === 'Counterattack') counterattackCount++;
     } else if (ev.tag === 'EncounterEnded') {
       result = ev.result;
       damageTakenThisAttempt = ev.damageTakenThisAttempt;
@@ -116,7 +136,7 @@ export function summariseAttempt(
     throw new Error('summariseAttempt called before EncounterEnded fired');
   }
 
-  let earned = captureCount * (playerAttack as unknown as number);
+  let earned = counterattackCount * (playerAttack as unknown as number);
   if (result === 'Victory') {
     earned += enemy.defeatBounty as unknown as number;
     if (damageTakenThisAttempt === 0) {

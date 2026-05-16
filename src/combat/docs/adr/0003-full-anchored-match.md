@@ -1,7 +1,25 @@
 # ADR-0003 (combat): Full anchored match; player writes `^...$`
 
 **Date**: 2026-05-16
-**Status**: Accepted
+**Status**: Amended 2026-05-16 — engine now auto-anchors
+
+## Amendment (2026-05-16)
+
+Pedagogical experiment overruled by UX feedback. The engine now wraps the Ward as `^(?:source)$` at resolution time (see `src/combat/spell.ts`), so the player writes the body alone. Player-typed `^`/`$` remain valid — they become redundant inner anchors under the wrapping — so any Ward written for the original ADR still behaves identically.
+
+What changes:
+
+- **Resolution.** `resolveSpell` builds a full-match regex per call. The "teachable mistake" of a forgotten `^` no longer fires; un-anchored `/dragon\d+/` now rejects `Xdragon42Y` instead of false-capturing it.
+- **Ward editor.** Placeholder drops the anchors (`dragon\d+`, not `^dragon\d+$`). A static **Supported syntax** cheat sheet replaces the implicit "you must write anchors" lesson with an explicit feature list.
+- **CONTEXT.md.** Ward glossary now states "matched end-to-end; engine anchors".
+
+What stands:
+
+- Only the `i` flag is allowed.
+- Capture groups remain syntactically allowed but mechanically inert.
+- The precision/recall framing (and Decoy authoring rules in ADR-0002) are unaffected — full match is still full match; only the *spelling* of the player's commitment changes.
+
+The rest of this document is preserved for history; treat it as the *prior decision*.
 
 ## Context
 

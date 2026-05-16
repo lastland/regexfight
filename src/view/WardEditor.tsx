@@ -1,14 +1,20 @@
 /**
  * WardEditor — the player composes their regex Ward here.
  *
- * Match semantics: see `src/combat/docs/adr/0003-full-anchored-match.md`.
- * The editor does NOT auto-anchor; the player must write `^...$` themselves.
+ * Match semantics: the engine full-matches the Ward end-to-end against each
+ * Spell (it wraps the source as `^(?:...)$` at resolution time). The player
+ * just writes the body. Player-typed `^`/`$` are accepted but redundant. See
+ * the Amendment in `src/combat/docs/adr/0003-full-anchored-match.md`.
+ *
  * Only the `i` flag is offered (other JS flags are intentionally omitted).
  *
  * Test-bench slot: see ADR-0001 (view). v1 ships without a live test bench,
  * but the layout reserves a clearly-labelled slot here so the future addition
  * is drop-in. If the parent does not supply `testBenchSlot`, we render the
  * "coming soon" placeholder so the absence is intentional rather than hidden.
+ *
+ * Supported-syntax cheat sheet: doc-only — the parser accepts any JS regex.
+ * See `src/view/docs/adr/0002-supported-regex-scope.md` for the rationale.
  */
 
 import { useMemo, useState } from 'react';
@@ -72,7 +78,7 @@ export function WardEditor(props: WardEditorProps): JSX.Element {
             onChange={(e) => setSource(e.target.value)}
             spellCheck={false}
             autoComplete="off"
-            placeholder="^dragon\d+$"
+            placeholder="dragon\d+"
             className="flex-1 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100 outline-none focus:border-zinc-400"
           />
           <span className="text-zinc-500">/</span>
@@ -105,6 +111,8 @@ export function WardEditor(props: WardEditorProps): JSX.Element {
         Start encounter
       </button>
 
+      <SupportedSyntaxCheatSheet />
+
       {/* Reserved slot for the future Test Bench. See ADR-0001 (view). */}
       <div
         aria-label="Test bench slot"
@@ -115,5 +123,49 @@ export function WardEditor(props: WardEditorProps): JSX.Element {
         )}
       </div>
     </section>
+  );
+}
+
+// Doc-only cheat sheet — the parser accepts any JS regex; this just names
+// the curated subset v1 teaches.
+const CHEAT_SHEET_ROWS: ReadonlyArray<readonly [string, string]> = [
+  ['abc', 'literal characters'],
+  ['.', 'any single character'],
+  ['[abc] [^abc] [a-z]', 'character class / negated / range'],
+  ['\\d \\D', 'digit / non-digit'],
+  ['\\w \\W', 'word char / non-word char'],
+  ['\\s \\S', 'whitespace / non-whitespace'],
+  ['? * +', '0–1 / 0+ / 1+ repetitions'],
+  ['{n} {n,} {n,m}', 'exact / at-least / range repetitions'],
+  ['(...)  (?:...)', 'group (capture has no mechanics; ?: is non-capturing)'],
+  ['|', 'alternation'],
+  ['\\.  \\(  \\\\', 'escape a metacharacter with a backslash'],
+  ['i flag', 'case-insensitive match (toggle above)'],
+];
+
+function SupportedSyntaxCheatSheet(): JSX.Element {
+  return (
+    <details
+      aria-label="Supported regex syntax"
+      className="rounded border border-zinc-800 bg-zinc-950/30 p-3 text-sm text-zinc-300"
+    >
+      <summary className="cursor-pointer font-semibold uppercase tracking-wide text-zinc-300">
+        Supported syntax
+      </summary>
+      <p className="mt-2 text-xs text-zinc-500">
+        The engine matches your Ward end-to-end, so <code>^</code> and{' '}
+        <code>$</code> are accepted but unnecessary. Other JS features
+        (lookahead/behind, backreferences, named groups, Unicode property
+        escapes) are out of scope in v1.
+      </p>
+      <ul className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 font-mono text-xs sm:grid-cols-2">
+        {CHEAT_SHEET_ROWS.map(([pat, desc]) => (
+          <li key={pat} className="flex gap-2">
+            <code className="text-zinc-100">{pat}</code>
+            <span className="text-zinc-400">— {desc}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

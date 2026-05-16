@@ -16,6 +16,8 @@ type Run = {
   progressScore: Score;
   observationLogs: Record<Enemy['id'], Spell[]>;
   visited: Record<Enemy['id'], boolean>;
+  enemyAttemptCounts: Record<Enemy['id'], number>;
+  deathCount: number;
   player: PlayerProfile;
 };
 ```
@@ -43,6 +45,12 @@ Populated in two ways:
 ### Visited
 A boolean per Enemy, tracking whether the player has ever reached that Enemy's prep screen. Used to guard against re-seeding the Observation Log on every visit — Seed Spells should only populate *once*, on first arrival.
 
+### Enemy Attempt Count
+A per-Enemy counter of resolved Attempts (win or loss). Bumped once at the end of each Encounter. The view layer reads it to flip the prep-screen header between the *foresight* framing (count === 0 — pre-fight clairvoyance) and the *Observation Log* framing (count > 0 — knowledge from past attempts).
+
+### Death Count
+The total number of resolved Defeat Attempts in this Run. Bumped at the end of each lost Encounter. The view layer reads it to render the first-death framing on the post-mortem exactly once.
+
 ### HP
 A Player or Enemy's hit-point pool. Damage subtracts; reaching 0 ends the Encounter.
 
@@ -53,7 +61,7 @@ type HP = number & { readonly __brand: 'HP' };
 The Run owns the Player's `baseHp`. The Enemy's `baseHp` is configured by `content`. The *current* HP during an Encounter lives in the Encounter state, which is in `combat`.
 
 ### Attack
-A Player or Enemy's damage stat. Damage dealt per successful Capture or per Hit landed equals the attacker's effective Attack.
+A Player or Enemy's damage stat. Damage dealt per successful Counterattack or per Hit landed equals the attacker's effective Attack.
 
 ```ts
 type Attack = number & { readonly __brand: 'Attack' };
@@ -73,7 +81,7 @@ See `docs/adr/0001-stat-driven-damage-and-modifiers.md`.
 ### Progress Score
 The accumulating reward currency. Earned by:
 
-- `+ player.attack` per **Capture** (i.e. score-per-Capture equals damage-dealt-per-Capture).
+- `+ player.attack` per **Counterattack** (i.e. score-per-Counterattack equals damage-dealt-per-Counterattack).
 - `+ enemy.defeatBounty` on Enemy defeat.
 - `+ enemy.flawlessBonus` on defeat *with zero damage taken in that Attempt*.
 

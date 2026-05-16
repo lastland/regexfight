@@ -5,7 +5,7 @@
 
 ## Context
 
-A naive damage model would hardcode constants — "each Hit takes 1 HP, each Capture deals 1 to enemy." This works for v1 but blocks the roguelike pivot the user explicitly intends: *"In a later iteration, I want to make it rogue-like so every time a player dies, they can use their progress score to purchase bonuses."*
+A naive damage model would hardcode constants — "each Hit takes 1 HP, each Counterattack deals 1 to enemy." This works for v1 but blocks the roguelike pivot the user explicitly intends: *"In a later iteration, I want to make it rogue-like so every time a player dies, they can use their progress score to purchase bonuses."*
 
 Bonuses = stat modifications. Retrofitting stat-driven damage onto a game that hardcodes `−1` everywhere is a refactor that touches every combat-resolution path. Worse, it changes the test surface — tests that asserted `playerHp -= 1` would all need updating.
 
@@ -16,8 +16,8 @@ The user's framing was: *"Both player and enemy have an attack stat. Let's start
 **Damage flows through stats, not constants.** Specifically:
 
 - `combat`'s damage resolution rule reads:
-  - On **Hit** or **FalseCapture**: `playerHp -= enemy.attack`.
-  - On **Capture**: `enemyHp -= player.attack`.
+  - On **Hit** or **Backfire**: `playerHp -= enemy.attack`.
+  - On **Counterattack**: `enemyHp -= player.attack`.
 - The `player.attack` and `enemy.attack` values are typed `Attack`, not raw `number`.
 
 **Stats are computed as `base + Σ modifiers`, not stored as a primitive.** Every read of a Player stat goes through a stat resolver:
@@ -44,13 +44,13 @@ In v1, `Modifier` is the empty union (no Modifier values exist). `effectiveAttac
 
 - Stat-driven damage is also the cleanest way to express enemy-side scaling. Phase 2 of an Enemy has `attack: 2`; the same damage resolution rule applies, no special-casing.
 
-- Tests are robust to v1 calibration changes. Property tests state invariants like "damage dealt by a Capture equals `player.attack`" — calibration knob movement doesn't break tests.
+- Tests are robust to v1 calibration changes. Property tests state invariants like "damage dealt by a Counterattack equals `player.attack`" — calibration knob movement doesn't break tests.
 
 **Negative:**
 
 - The indirection adds cognitive overhead for v1, where the only call to `effectiveAttack` is over a one-element-summing pipeline. Worth it for the future-proofing; explicitly noted to prevent a future developer "simplifying" it away.
 - Branded `Attack` and `HP` types require explicit construction. Slightly more ceremony at type-construction sites. Worth it to prevent confusable mixing — `playerHp -= enemy.attack` should be type-safe in a way that raw `number - number` is not.
-- Score coupling: `progressScore += player.attack` per Capture (see `~/.claude/plans/i-want-to-design-drifting-origami.md`). The roguelike pivot will create a positive feedback loop (more Attack → more Score per Capture → more bonuses → more Attack). The user is aware and has accepted this as a design lever.
+- Score coupling: `progressScore += player.attack` per Counterattack (see `~/.claude/plans/i-want-to-design-drifting-origami.md`). The roguelike pivot will create a positive feedback loop (more Attack → more Score per Counterattack → more bonuses → more Attack). The user is aware and has accepted this as a design lever.
 
 ## Alternatives considered
 
@@ -67,7 +67,7 @@ Modifiers exist; combat ignores them in v1.
 ### C. Damage as a more general resolution function: `resolve(attacker, defender, outcome) → DamageEvent`
 A richer abstraction with attack/defense matchups, damage types, resistances.
 
-**Why not:** Genuinely useful, but overengineered for the v1 design. The current rules are simple: Hit/FalseCapture deal `enemy.attack`, Capture deals `player.attack`, Dodge deals nothing. If a future ADR introduces damage types (e.g. arcane vs physical), the abstraction can grow then.
+**Why not:** Genuinely useful, but overengineered for the v1 design. The current rules are simple: Hit/Backfire deal `enemy.attack`, Counterattack deals `player.attack`, Dodge deals nothing. If a future ADR introduces damage types (e.g. arcane vs physical), the abstraction can grow then.
 
 ## See also
 

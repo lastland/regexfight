@@ -21,21 +21,22 @@ export const KIND_BORDER_CLASS: Record<Kind, string> = {
 };
 
 export const OUTCOME_LABEL: Record<Outcome, string> = {
-  Capture: '✓ Capture',
+  Counterattack: '✓ Counterattack',
   Hit: '✗ Hit',
-  FalseCapture: '✗ False capture',
+  Backfire: '✗ Backfire',
   Dodge: '✓ Dodge',
 };
 
 /**
- * Tailwind text-color classes for each Outcome. Capture/Dodge are "good"
- * (player-side); Hit/FalseCapture are "bad" (enemy-side). Aligning these to
- * the Kind palette would conflate "Real spell" with "good outcome" — which is
- * wrong (a Real spell is bad if missed). So Outcome colors are independent.
+ * Tailwind text-color classes for each Outcome. Counterattack/Dodge are
+ * "good" (player-side); Hit/Backfire are "bad" (enemy-side). Aligning
+ * these to the Kind palette would conflate "Real spell" with "good outcome"
+ * — which is wrong (a Real spell is bad if missed). So Outcome colors are
+ * independent.
  */
 export const OUTCOME_CLASS: Record<Outcome, string> = {
-  Capture: 'text-emerald-400',
+  Counterattack: 'text-emerald-400',
   Hit: 'text-rose-400',
-  FalseCapture: 'text-rose-400',
+  Backfire: 'text-rose-400',
   Dodge: 'text-emerald-400',
 };

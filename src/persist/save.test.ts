@@ -55,6 +55,8 @@ function makeRun(): Run {
       ],
     },
     visited: { [goblinId]: true },
+    enemyAttemptCounts: { [goblinId]: 3 },
+    deathCount: 2,
     player: {
       baseHp: hp(20),
       baseAttack: attack(3),

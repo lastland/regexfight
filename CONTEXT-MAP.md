@@ -20,12 +20,15 @@ A few terms cross context boundaries. Each context's glossary names *its* meanin
 
 | Term                | Where it lives             | Where it shows up elsewhere                                 |
 |---------------------|----------------------------|-------------------------------------------------------------|
-| **Spell**           | `combat` (primary)         | `content` (as YAML data), `view` (as rendered chip)         |
+| **Spell**           | `combat` (primary)         | `content` (as YAML data), `view` (rendered as Spell Projectile + Spell Text) |
 | **Attempt**         | `combat` (encounter try)   | `run` (an element of the Run's history)                     |
 | **Pattern**         | `combat`                   | `content` (validated `PatternSrc` string at load)           |
 | **Run**             | `run`                      | `persist` (the serialized payload)                          |
 | **HP / Attack**     | `run` (player & enemy stats) | `combat` (consumed during damage resolution)               |
 | **Modifier**        | `run` (architectural slot) | reserved for the roguelike pivot; empty union in v1         |
+| **Outcome** (Counterattack / Hit / Backfire / Dodge) | `combat`     | `view` drives the per-Outcome Resolution Animation; `run` references in scoring |
+| **Phase**           | `combat` (Enemy phase: HP-threshold-triggered) | `view` uses **Animation Phase** for the per-spell visual stages — disambiguate when ambiguous |
+| **Ward**            | `combat`                   | `view` renders the Ward Sigil as its in-combat visualisation |
 
 ## Adding a new context
 

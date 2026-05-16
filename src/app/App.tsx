@@ -39,6 +39,7 @@ import {
   addScore,
   createRun,
   mergeObservations,
+  recordAttempt,
   seedOnArrival,
   summariseAttempt,
   advanceRun,
@@ -67,6 +68,7 @@ type ScreenState =
       result: 'Victory' | 'Defeat';
       scoreEarned: ReturnType<typeof score>;
       damageTakenThisAttempt: number;
+      isFirstDeath: boolean;
     }
   | { tag: 'run-complete' };
 
@@ -203,7 +205,13 @@ export function App() {
         summary.attemptSpells,
       );
       const scored = addScore(merged, summary.scoreEarned);
-      setRun(scored);
+      const recorded = recordAttempt(scored, currentEnemy.id, summary.result);
+      setRun(recorded);
+      // First-death framing fires only when this Defeat brings the
+      // run-wide death count from 0 → 1. Subsequent defeats render the
+      // plain post-mortem.
+      const isFirstDeath =
+        summary.result === 'Defeat' && recorded.deathCount === 1;
       setScreen((prev) => ({
         tag: 'postmortem',
         lastWardSrc: prev.tag === 'encounter' ? prev.lastWardSrc : '',
@@ -212,6 +220,7 @@ export function App() {
         result: summary.result,
         scoreEarned: summary.scoreEarned,
         damageTakenThisAttempt: summary.damageTakenThisAttempt,
+        isFirstDeath,
       }));
     },
     [run, currentEnemy],
@@ -269,11 +278,14 @@ export function App() {
   const obsLog = run.observationLogs[currentEnemy.id] ?? [];
 
   if (screen.tag === 'prep') {
+    const foresight =
+      (run.enemyAttemptCounts[currentEnemy.id as unknown as string] ?? 0) === 0;
     return (
       <PrepScreen
         enemy={currentEnemy}
         observationLog={obsLog}
         progressScore={run.progressScore}
+        foresight={foresight}
         onStartEncounter={(ward) => {
           // Remember the submitted source for potential future use (e.g.
           // pre-filling the WardEditor on retry once it exposes that prop).
@@ -309,6 +321,7 @@ export function App() {
     result: screen.result,
     scoreEarned: screen.scoreEarned,
     damageTakenThisAttempt: screen.damageTakenThisAttempt,
+    isFirstDeath: screen.isFirstDeath,
     onRetry,
   };
   return screen.result === 'Victory' ? (
@@ -379,7 +392,17 @@ function makeRunValidator(enemies: Enemy[]) {
     if (typeof p.player !== 'object' || p.player === null) {
       throw new Error('Run.player missing');
     }
-    return p;
+    // enemyAttemptCounts and deathCount were added after the initial save
+    // format; coalesce defaults so saves from the prior build still load.
+    const coalesced: Run = {
+      ...p,
+      enemyAttemptCounts:
+        typeof p.enemyAttemptCounts === 'object' && p.enemyAttemptCounts !== null
+          ? p.enemyAttemptCounts
+          : {},
+      deathCount: typeof p.deathCount === 'number' ? p.deathCount : 0,
+    };
+    return coalesced;
   };
 }
 

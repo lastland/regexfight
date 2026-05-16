@@ -45,5 +45,13 @@ export type Run = {
   progressScore: Score;
   observationLogs: Record<string, ObservationLog>;
   visited: Record<string, boolean>;
+  // Completed Attempts per Enemy. Bumped once per resolved encounter,
+  // win or lose. Used by the prep screen to flip the seed-spell section
+  // between the foresight framing (count === 0) and the persistent
+  // Observation Log framing (count > 0).
+  enemyAttemptCounts: Record<string, number>;
+  // Total resolved Defeat attempts in this Run. Used by the post-mortem
+  // to show the first-death framing exactly once.
+  deathCount: number;
   player: PlayerProfile;
 };

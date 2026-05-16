@@ -82,7 +82,7 @@ describe('encounter — determinism', () => {
       fc.property(fc.integer(), (seed) => {
         const enemy = mkEnemy();
         const player = mkPlayer();
-        const ward = /^dragon\d+$/;
+        const ward = /dragon\d+/;
         const a = runEncounter(enemy, player, seed, ward);
         const b = runEncounter(enemy, player, seed, ward);
         expect(b).toEqual(a);
@@ -98,7 +98,7 @@ describe('encounter — pattern invariance', () => {
       fc.property(fc.integer(), (seed) => {
         const enemy = mkEnemy();
         const player = mkPlayer();
-        const ward = /^dragon\d+$/;
+        const ward = /dragon\d+/;
         const state0 = startEncounter({ enemy, player, seed });
         const expectedSource = state0.pattern.source;
 
@@ -127,18 +127,18 @@ describe('encounter — pattern invariance', () => {
       ],
     });
     const player = mkPlayer();
-    const events = runEncounter(enemy, player, 1234, /^dragon\d+$/);
+    const events = runEncounter(enemy, player, 1234, /dragon\d+/);
     for (const ev of events) {
       expect(ev.tag).not.toBe('PhaseAdvanced');
     }
   });
 });
 
-describe('encounter — damage symmetry (Hit vs FalseCapture)', () => {
-  // Per ADR-0002: Hit and FalseCapture both deal enemy.attack to the player.
+describe('encounter — damage symmetry (Hit vs Backfire)', () => {
+  // Per ADR-0002: Hit and Backfire both deal enemy.attack to the player.
   // Verified per-step: for any individual SpellResolved event whose outcome is
-  // Hit or FalseCapture, the playerHp delta equals -(current phase's attack).
-  it('every Hit and FalseCapture deals exactly the current phase attack to the player', () => {
+  // Hit or Backfire, the playerHp delta equals -(current phase's attack).
+  it('every Hit and Backfire deals exactly the current phase attack to the player', () => {
     fc.assert(
       fc.property(fc.integer(), (seed) => {
         const enemy = mkEnemy();
@@ -152,7 +152,7 @@ describe('encounter — damage symmetry (Hit vs FalseCapture)', () => {
           const { state: next, event } = stepEncounter(state, ward);
           if (event.tag === 'SpellResolved') {
             const delta = (event.playerHp as number) - lastPlayerHp;
-            if (event.outcome === 'Hit' || event.outcome === 'FalseCapture') {
+            if (event.outcome === 'Hit' || event.outcome === 'Backfire') {
               // delta should equal -currentPhaseAttack (clamped at 0 lower bound).
               const expected = Math.max(
                 0,
@@ -160,7 +160,7 @@ describe('encounter — damage symmetry (Hit vs FalseCapture)', () => {
               ) - lastPlayerHp;
               expect(delta).toBe(expected);
             } else if (
-              event.outcome === 'Capture' ||
+              event.outcome === 'Counterattack' ||
               event.outcome === 'Dodge'
             ) {
               expect(delta).toBe(0);
@@ -184,13 +184,14 @@ describe('encounter — damage symmetry (Hit vs FalseCapture)', () => {
 // ---------------------------------------------------------------------------
 
 describe('encounter — example: correct Ward sweeps', () => {
-  it('an anchored Ward identical to the Pattern wins every Encounter regardless of seed', () => {
+  it('a Ward identical to the Pattern wins every Encounter regardless of seed', () => {
     fc.assert(
       fc.property(fc.integer(), (seed) => {
         const enemy = mkEnemy();
         const player = mkPlayer();
-        // Pattern is `dragon\d+`; correct anchored Ward is `^dragon\d+$`.
-        const events = runEncounter(enemy, player, seed, /^dragon\d+$/);
+        // Pattern is `dragon\d+`; engine full-matches end-to-end so the
+        // body alone is the correct Ward (no anchors needed).
+        const events = runEncounter(enemy, player, seed, /dragon\d+/);
         const last = events[events.length - 1]!;
         expect(last.tag).toBe('EncounterEnded');
         if (last.tag === 'EncounterEnded') {
@@ -204,7 +205,7 @@ describe('encounter — example: correct Ward sweeps', () => {
   it("the correct Ward takes zero damage (flawless)", () => {
     const enemy = mkEnemy();
     const player = mkPlayer();
-    const events = runEncounter(enemy, player, 42, /^dragon\d+$/);
+    const events = runEncounter(enemy, player, 42, /dragon\d+/);
     const last = events[events.length - 1]!;
     expect(last.tag).toBe('EncounterEnded');
     if (last.tag === 'EncounterEnded') {
@@ -216,7 +217,7 @@ describe('encounter — example: correct Ward sweeps', () => {
 
 describe('encounter — example: /.*/ Ward dies', () => {
   // With a beefier enemy (more HP, stronger attack than the player), `/.*/`
-  // ward FalseCaptures every Decoy faster than it Captures Reals — so the
+  // ward Backfires every Decoy faster than it Captures Reals — so the
   // player dies before the enemy does. This is the canonical anti-cheese
   // demonstration from ADR-0002.
   const beefyEnemy: Enemy = mkEnemy({
@@ -231,7 +232,7 @@ describe('encounter — example: /.*/ Ward dies', () => {
     ],
   });
 
-  it('matches everything → FalseCaptures every Decoy → death (beefy enemy)', () => {
+  it('matches everything → Backfires every Decoy → death (beefy enemy)', () => {
     fc.assert(
       fc.property(fc.integer(), (seed) => {
         const player = mkPlayer();
@@ -251,7 +252,7 @@ describe('encounter — phase advance', () => {
   it('emits PhaseAdvanced (not SpellResolved) on the step that crosses the threshold', () => {
     const enemy = mkEnemy();
     const player = mkPlayer();
-    const events = runEncounter(enemy, player, 99, /^dragon\d+$/);
+    const events = runEncounter(enemy, player, 99, /dragon\d+/);
     const phaseEvents = events.filter((e) => e.tag === 'PhaseAdvanced');
     // The correct Ward Captures every Real (and we have a 50/50 Real/Decoy
     // split). 100 enemy HP, attack 8 → ~13 captures to kill the enemy. We

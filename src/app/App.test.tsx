@@ -49,8 +49,9 @@ describe('App', () => {
       { timeout: 2000 },
     );
 
-    // Seed spells should be pre-populated into the Observation Log.
-    expect(screen.getByText(/Observation log/i)).toBeTruthy();
+    // Before the first attempt against this Enemy, the seed spells render
+    // under the Foresight/clairvoyance framing (PrepScreen.foresight = true).
+    expect(screen.getByText(/Foresight/i)).toBeTruthy();
     expect(screen.getByText('cat12')).toBeTruthy();
     expect(screen.getByText('dog99')).toBeTruthy();
     expect(screen.getByText('12cat')).toBeTruthy();
