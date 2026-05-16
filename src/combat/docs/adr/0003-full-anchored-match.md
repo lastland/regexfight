@@ -13,11 +13,13 @@ Flag handling needs a default policy too. Of the JS regex flags (`g`, `i`, `m`, 
 
 ## Decision
 
-**A Spell is Captured iff the Ward matches its `text` end-to-end.** The Ward must satisfy `^...$` semantics over the entire spell string.
+**The engine tests a Ward against a Spell with JavaScript's default partial-match semantics — `ward.test(spell.text)`.** No auto-wrapping; no special end-to-end enforcement.
 
-**The player writes the anchors themselves.** The engine does NOT auto-wrap. Forgetting an anchor produces a real, visible failure mode (e.g. a `/dragon\d+/` Ward without `^` will match decoys like `Xdragon42Y` and take FalseCapture damage), which is exactly the kind of teachable mistake the soul-like death loop should expose.
+**The *design intent* is that the player's Ward should be end-to-end-equivalent to the Pattern.** To express that, the player must write `^...$` anchors themselves. Anchored Wards behave as full-match; un-anchored Wards behave as partial-match — and partial-match is too loose to win against decoys.
 
-**Only the `i` flag is allowed.** Other flags are either irrelevant under single-line full-match (`g`, `m`, `s`, `y`, `d`) or beyond v1 scope (`u`). The Ward editor restricts flag input to `i`.
+Concretely: a Ward like `/dragon\d+/` (no anchors) will match the decoy `Xdragon42Y` because partial match returns true. The player takes FalseCapture damage. The failure mode is visible and the diagnostic is right there in the post-mortem (`Xdragon42Y` matched ≠ author's intent). This is exactly the kind of teachable mistake the soul-like death loop should expose.
+
+**Only the `i` flag is allowed.** Other flags are either irrelevant under single-line short strings (`g` has no effect on `.test()`; `m`, `s`, `y`, `d` interact with structures the spell text doesn't contain) or beyond v1 scope (`u`). The Ward editor restricts flag input to `i`.
 
 **Capture groups are syntactically allowed but have no mechanical meaning.** `(\d+)` is fine; the captured substring is discarded. This keeps the core sim minimal. (A future feature could give capture groups gameplay meaning — e.g. "captured substring becomes counterattack damage" — but it would be a different game.)
 
