@@ -7,6 +7,7 @@
  * the Ward submission callback routes to whoever spins up the Encounter.
  */
 
+import type { JSX } from 'react';
 import type { Enemy } from '../content/types';
 import type { Spell } from '../combat/types';
 import type { Score } from '../run/types';

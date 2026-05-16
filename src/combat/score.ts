@@ -12,7 +12,7 @@ import type { Outcome } from './types';
 
 export function scoreFromOutcome(outcome: Outcome, playerAttack: Attack): Score {
   if (outcome === 'Counterattack') {
-    return score(playerAttack as number);
+    return score(playerAttack);
   }
   return score(0);
 }

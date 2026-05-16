@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import { resolveSpell, damageDelta } from './spell';
 import { attack } from '../run/types';
-import type { Outcome, Spell } from './types';
+import type { Outcome } from './types';
 
 describe('resolveSpell — example cases', () => {
   it('Real + ward matches → Counterattack', () => {
@@ -58,7 +58,7 @@ describe('resolveSpell — property: outcome follows kind × match truth table',
       fc.property(
         fc.record({
           text: fc.string(),
-          kind: fc.constantFrom('Real', 'Decoy') as fc.Arbitrary<Spell['kind']>,
+          kind: fc.constantFrom<'Real' | 'Decoy'>('Real', 'Decoy'),
         }),
         // Use a small set of stable regexes so the engine's full-match
         // semantics are well-defined for each.
@@ -67,7 +67,7 @@ describe('resolveSpell — property: outcome follows kind × match truth table',
           const matches = new RegExp(`^(?:${ward.source})$`, ward.flags).test(
             spell.text,
           );
-          const outcome = resolveSpell(spell as Spell, ward);
+          const outcome = resolveSpell(spell, ward);
           const allowed: Outcome[] = ['Counterattack', 'Hit', 'Backfire', 'Dodge'];
           expect(allowed).toContain(outcome);
 

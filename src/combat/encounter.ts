@@ -41,9 +41,9 @@ export function startEncounter(params: {
   seed: number;
 }): EncounterState {
   const { enemy, player, seed } = params;
-  const pattern = new RegExp(enemy.pattern as string);
+  const pattern = new RegExp(enemy.pattern);
   return {
-    enemyId: enemy.id as string,
+    enemyId: enemy.id,
     pattern,
     phases: enemy.phases.map((p) => ({
       hpThreshold: p.hpThreshold,
@@ -95,7 +95,12 @@ function pickSpell(state: EncounterState): Spell {
     );
   }
   const idx = Math.floor(indexDraw * pool.length);
-  const text = pool[idx] ?? pool[0]!;
+  const text = pool[idx] ?? pool[0];
+  if (text === undefined) {
+    throw new Error(
+      `encounter: pool sample produced undefined (phase ${state.currentPhaseIdx})`,
+    );
+  }
   const kind: Spell['kind'] = pool === phase.realPool ? 'Real' : 'Decoy';
   return { text, kind };
 }
@@ -136,7 +141,12 @@ export function stepEncounter(
   const spell = pickSpell(state);
   const outcome = resolveSpell(spell, ward);
 
-  const phase = state.phases[state.currentPhaseIdx]!;
+  const phase = state.phases[state.currentPhaseIdx];
+  if (!phase) {
+    throw new Error(
+      `encounter: currentPhaseIdx ${state.currentPhaseIdx} out of bounds`,
+    );
+  }
   const enemyAttackForPhase: Attack = phase.attack;
   const { playerHpDelta, enemyHpDelta } = damageDelta(
     outcome,
@@ -185,8 +195,8 @@ export function stepEncounter(
   const newPhaseIdx = nextPhaseIdxFor(
     state.phases,
     state.currentPhaseIdx,
-    newEnemyHp as number,
-    state.enemyMaxHp as number,
+    newEnemyHp,
+    state.enemyMaxHp,
   );
   if (newPhaseIdx !== state.currentPhaseIdx) {
     const advancedState: EncounterState = {

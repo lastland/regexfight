@@ -10,7 +10,7 @@
  * the terminal `EncounterEnded` event arrives.
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type JSX } from 'react';
 import type { EncounterEvent } from '../combat/types';
 import type { HP } from '../run/types';
 import type { Enemy } from '../content/types';

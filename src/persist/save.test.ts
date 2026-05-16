@@ -30,7 +30,7 @@ function memoryStorage(): Storage {
     get length() {
       return m.size;
     },
-    clear: () => m.clear(),
+    clear: () => { m.clear(); },
     getItem: (k: string) => m.get(k) ?? null,
     setItem: (k: string, v: string) => {
       m.set(k, v);

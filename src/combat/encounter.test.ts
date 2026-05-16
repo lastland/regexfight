@@ -159,16 +159,16 @@ describe('encounter — damage symmetry (Hit vs Backfire)', () => {
                 lastPlayerHp - currentPhaseAttack,
               ) - lastPlayerHp;
               expect(delta).toBe(expected);
-            } else if (
-              event.outcome === 'Counterattack' ||
-              event.outcome === 'Dodge'
-            ) {
+            } else {
+              // Remaining outcomes (Counterattack / Dodge) are damage-neutral.
               expect(delta).toBe(0);
             }
-            lastPlayerHp = event.playerHp as number;
+            lastPlayerHp = event.playerHp;
           } else if (event.tag === 'PhaseAdvanced') {
-            currentPhaseAttack = next.phases[next.currentPhaseIdx]!
-              .attack as number;
+            const nextPhase = next.phases[next.currentPhaseIdx];
+            if (nextPhase) {
+              currentPhaseAttack = nextPhase.attack;
+            }
           }
           state = next;
           if (event.tag === 'EncounterEnded') break;

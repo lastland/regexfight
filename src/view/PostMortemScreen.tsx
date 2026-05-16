@@ -8,6 +8,7 @@
  * the entries the caller hands us.
  */
 
+import type { JSX } from 'react';
 import type { Outcome, Spell } from '../combat/types';
 import type { Score } from '../run/types';
 import type { Enemy } from '../content/types';
@@ -92,7 +93,7 @@ export function PostMortemScreen(props: PostMortemScreenProps): JSX.Element {
         <div className="flex items-center gap-3 font-mono">
           <span className="text-zinc-400">Score earned</span>
           <span className="text-xl text-amber-300">
-            +{scoreEarned as unknown as number}
+            +{scoreEarned}
           </span>
           {flawless ? (
             <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-300">

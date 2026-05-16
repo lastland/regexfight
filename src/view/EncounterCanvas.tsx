@@ -28,7 +28,7 @@
  *   - src/view/docs/adr/0004-five-phase-spell-animation.md
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type JSX } from 'react';
 import type { EncounterEvent, Kind, Outcome } from '../combat/types';
 import type { SpeedMultiplier } from './useSpeedMultiplier';
 import {
@@ -288,7 +288,6 @@ function sigilStateFor(anim: SpellAnimation, now: number, speed: SpeedMultiplier
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-
 export type EncounterCanvasProps = {
   events: readonly EncounterEvent[];
   /**

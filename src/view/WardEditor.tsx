@@ -17,7 +17,7 @@
  * See `src/view/docs/adr/0002-supported-regex-scope.md` for the rationale.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type JSX } from 'react';
 
 export type WardEditorProps = {
   initialSource?: string;
@@ -75,7 +75,7 @@ export function WardEditor(props: WardEditorProps): JSX.Element {
             id="ward-source"
             type="text"
             value={source}
-            onChange={(e) => setSource(e.target.value)}
+            onChange={(e) => { setSource(e.target.value); }}
             spellCheck={false}
             autoComplete="off"
             placeholder="dragon\d+"
@@ -86,7 +86,7 @@ export function WardEditor(props: WardEditorProps): JSX.Element {
             <input
               type="checkbox"
               checked={caseInsensitive}
-              onChange={(e) => setCaseInsensitive(e.target.checked)}
+              onChange={(e) => { setCaseInsensitive(e.target.checked); }}
             />
             <span className="font-mono">i</span>
           </label>
