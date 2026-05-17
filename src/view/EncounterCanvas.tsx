@@ -51,8 +51,10 @@ import {
 } from './effects/damageNumbers';
 import {
   FLASH_BY_OUTCOME,
+  FLASH_STYLE_BY_OUTCOME,
   drawFlash,
   type FlashColor,
+  type FlashStyle,
 } from './effects/flashOverlay';
 import { getShakeOffset } from './effects/screenShake';
 
@@ -154,7 +156,12 @@ type AnimState = {
   damageNumberStyles: Map<number, DamageNumberStyle>;
   nextDamageId: number;
   shakeStart: number | null;
-  flash: { color: FlashColor; rect: { x: number; y: number; w: number; h: number }; startTime: number } | null;
+  flash: {
+    color: FlashColor;
+    style: FlashStyle;
+    rect: { x: number; y: number; w: number; h: number };
+    startTime: number;
+  } | null;
   // The previously-rendered terminal-event flag, so we can stop ticking.
   encounterEnded: boolean;
 };
@@ -222,7 +229,12 @@ function projectileT(anim: SpellAnimation, now: number, speed: SpeedMultiplier):
         // Projectile reverses direction during Resolution.
         return 1 - r;
       }
-      // Hit / Backfire / Dodge: projectile lingers near the player for the
+      if (anim.event.outcome === 'Dodge') {
+        // Projectile phases past the player and fizzles out (ADR-0004).
+        // t > 1 carries it off the right of the player; alpha fades in parallel.
+        return 1 + r * 0.7;
+      }
+      // Hit / Backfire: projectile lingers near the player for the
       // first half, fades out for the second half. Caller fades via alpha.
       return 1;
     }
@@ -506,12 +518,13 @@ function onResolutionEnter(
 
   // Per-Outcome flash overlay.
   const flashColor = FLASH_BY_OUTCOME[outcome];
+  const flashStyle = FLASH_STYLE_BY_OUTCOME[outcome];
   const figureW = 16 * PLAYER_FIGURE_SCALE;
   const figureH = 24 * PLAYER_FIGURE_SCALE;
   const enemyRect = { x: layout.enemyX, y: layout.enemyY, w: figureW, h: figureH };
   const playerRect = { x: layout.playerX, y: layout.playerY, w: figureW, h: figureH };
   const targetRect = outcome === 'Counterattack' ? enemyRect : playerRect;
-  state.flash = { color: flashColor, rect: targetRect, startTime: now };
+  state.flash = { color: flashColor, style: flashStyle, rect: targetRect, startTime: now };
 
   // Hit-only screen shake.
   if (outcome === 'Hit') {
@@ -609,7 +622,15 @@ function drawScene(
 
   // Flash overlay (above figures but below damage numbers).
   if (state.flash) {
-    const alive = drawFlash(ctx, state.flash.color, state.flash.rect, state.flash.startTime, now, speed);
+    const alive = drawFlash(
+      ctx,
+      state.flash.color,
+      state.flash.rect,
+      state.flash.startTime,
+      now,
+      speed,
+      state.flash.style,
+    );
     if (!alive) state.flash = null;
   }
 
