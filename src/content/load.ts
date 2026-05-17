@@ -5,6 +5,19 @@
  * Each loader parses YAML text → unknown, then runs the matching Zod schema's
  * `.parse(...)` and surfaces validation failures by throwing the (already
  * descriptive) ZodError.
+ *
+ * These loaders are NOT reached from runtime code — runtime fetches
+ * pre-validated JSON from `./fetch.ts`. They live here for use by:
+ *   - tests (`./load.test.ts`, `./schemas.test.ts`, `src/app/App.test.tsx`),
+ *   - the build-time content validator (`scripts/validate-content.ts`),
+ *   - and the Vite plugin's projection mirror (`vite-plugins/content.ts`
+ *     does not import this file but its `project*` functions are paired
+ *     with the schemas referenced here).
+ *
+ * Importing this module pulls `yaml` and `zod` into the call graph. Keep
+ * runtime barrels (`./index.ts`, `./fetch.ts`) free of any reference to it.
+ *
+ * See ADR-0002 (content): data is fetched as JSON, not bundled.
  */
 
 import { parse as parseYaml } from 'yaml';

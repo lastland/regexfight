@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { startEncounter, stepEncounter } from '../combat';
 import type { EncounterEvent, EncounterState } from '../combat';
-import { loadEnemyYaml, loadPlayerYaml } from '../content';
+import { fetchEnemyJson, fetchPlayerJson } from '../content';
 import type { Enemy } from '../content/types';
 import {
   CURRENT_SCHEMA_VERSION,
@@ -35,10 +35,6 @@ import {
   getAudioContext,
   loadAllSamples,
 } from '../view/audio';
-
-// Vite raw imports: bundles the YAML text into the JS at build time.
-import playerYamlText from '../../data/player.yaml?raw';
-import javaFloatYamlText from '../../data/enemies/00-java-float.yaml?raw';
 
 import {
   addScore,
@@ -113,9 +109,10 @@ export function App(props: AppProps = {}) {
     let cancelled = false;
     void (async () => {
       try {
+        const base = import.meta.env.BASE_URL;
         const [player, javaFloat] = await Promise.all([
-          loadPlayerYaml(playerYamlText),
-          loadEnemyYaml(javaFloatYamlText),
+          fetchPlayerJson(`${base}data/player.json`),
+          fetchEnemyJson(`${base}data/enemies/00-java-float.json`),
         ]);
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cleanup may flip `cancelled` between the await and here; the typechecker can't see closure mutation.
         if (cancelled) return;

@@ -1,8 +1,8 @@
 /**
  * Tests for startEncounter / stepEncounter.
  *
- * Covers: determinism, pattern invariance across phases, damage symmetry,
- * and two hand-built example encounters (correct Ward sweeps; .* Ward dies).
+ * Covers: determinism, realRate distribution, damage symmetry, and two
+ * hand-built example encounters (correct Ward sweeps; .* Ward dies).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -93,29 +93,7 @@ describe('encounter — determinism', () => {
   });
 });
 
-describe('encounter — pattern invariance', () => {
-  it('the Enemy pattern string is unchanged for the full Encounter', () => {
-    fc.assert(
-      fc.property(fc.integer(), (seed) => {
-        const enemy = mkEnemy();
-        const player = mkPlayer();
-        const ward = /dragon\d+/;
-        const state0 = startEncounter({ enemy, player, seed });
-        const expectedSource = state0.pattern.source;
-
-        let state = state0;
-        for (let i = 0; i < 5000; i++) {
-          const { state: next, event } = stepEncounter(state, ward);
-          // Pattern source must never change across steps.
-          expect(next.pattern.source).toBe(expectedSource);
-          state = next;
-          if (event.tag === 'EncounterEnded') break;
-        }
-      }),
-      { numRuns: 25 },
-    );
-  });
-
+describe('encounter — realRate', () => {
   it('realRate biases the kind distribution of drawn Spells', () => {
     // A large sample size + property test over seeds is needed because any
     // single seed's distribution can drift from the underlying probability.

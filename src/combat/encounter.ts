@@ -41,10 +41,8 @@ export function startEncounter(params: {
   seed: number;
 }): EncounterState {
   const { enemy, player, seed } = params;
-  const pattern = new RegExp(enemy.pattern);
   return {
     enemyId: enemy.id,
-    pattern,
     phases: enemy.phases.map((p) => ({
       hpThreshold: p.hpThreshold,
       attack: p.attack,

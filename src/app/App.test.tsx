@@ -6,9 +6,13 @@
  * Victory.
  */
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { render, screen, act, waitFor, fireEvent } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
+import { loadEnemyYaml, loadPlayerYaml } from '../content/load';
 
 // happy-dom's built-in localStorage is incomplete in our setup; polyfill a
 // simple in-memory Storage for the duration of these tests.
@@ -26,15 +30,79 @@ function makeMemoryStorage(): Storage {
   };
 }
 
-beforeEach(() => {
+// In production App fetches the JSON assets emitted by
+// `vite-plugins/content.ts`. There's no dev server under Vitest, so we stub
+// `fetch` to serve the same content from the source YAML — parsed and
+// (for the enemy) `pattern`-stripped to match what the plugin emits.
+const PROJECT_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../..',
+);
+
+async function buildContentResponses(): Promise<{
+  player: unknown;
+  enemy: unknown;
+}> {
+  const playerYaml = readFileSync(
+    path.join(PROJECT_ROOT, 'data/player.yaml'),
+    'utf8',
+  );
+  const enemyYaml = readFileSync(
+    path.join(PROJECT_ROOT, 'data/enemies/00-java-float.yaml'),
+    'utf8',
+  );
+  const player = await loadPlayerYaml(playerYaml);
+  const enemy = (await loadEnemyYaml(enemyYaml)) as Record<string, unknown>;
+  // Match the plugin's projection (`vite-plugins/content.ts` → projectEnemy):
+  // strip pattern, keep everything else.
+  const { pattern: _pattern, ...enemyStripped } = enemy;
+  return { player, enemy: enemyStripped };
+}
+
+function fetchUrlOf(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
+function makeFetchStub(responses: { player: unknown; enemy: unknown }) {
+  return vi.fn((input: RequestInfo | URL): Promise<Response> => {
+    const url = fetchUrlOf(input);
+    const body =
+      url.endsWith('data/player.json')
+        ? responses.player
+        : url.endsWith('data/enemies/00-java-float.json')
+          ? responses.enemy
+          : null;
+    if (body === null) {
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        json: () => Promise.resolve(null),
+      } as unknown as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: () => Promise.resolve(body),
+    } as unknown as Response);
+  });
+}
+
+beforeEach(async () => {
   Object.defineProperty(window, 'localStorage', {
     configurable: true,
     value: makeMemoryStorage(),
   });
+  const responses = await buildContentResponses();
+  vi.stubGlobal('fetch', makeFetchStub(responses));
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe('App', () => {

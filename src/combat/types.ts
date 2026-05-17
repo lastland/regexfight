@@ -56,7 +56,6 @@ export type PatternSrc = string & { readonly [__patternBrand]: 'PatternSrc' };
  */
 export type EncounterState = {
   readonly enemyId: string;
-  readonly pattern: RegExp;
   readonly phases: ReadonlyArray<{
     readonly hpThreshold: number;
     readonly attack: Attack;
