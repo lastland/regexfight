@@ -155,6 +155,79 @@ describe('encounter — pattern invariance', () => {
     expect(loRatio).toBeLessThan(0.15);
   });
 
+  it('per-phase realRate overrides the enemy-level rate', () => {
+    // Enemy-level realRate is 0.5, but Phase 1 overrides to 0.9 and Phase 2
+    // overrides to 0.1. We sample Real/Decoy distribution per phase and
+    // expect each phase's stream to track its own override.
+    const enemy = mkEnemy({
+      baseHp: hp(10_000),
+      realRate: 0.5,
+      phases: [
+        {
+          hpThreshold: 1.0,
+          attack: attack(5),
+          realPool: ['dragon1', 'dragon2', 'dragon42'],
+          decoyPool: ['cat1', 'wolf2', 'orc3'],
+          realRate: 0.9,
+        },
+        {
+          hpThreshold: 0.5,
+          attack: attack(10),
+          realPool: ['dragon7', 'dragon88'],
+          decoyPool: ['Xdragon42Y', 'dragonABC'],
+          realRate: 0.1,
+        },
+      ],
+    });
+    const player = mkPlayer();
+    const ward = /dragon\d+/;
+    let state = startEncounter({ enemy, player, seed: 12345 });
+    const counts: { real: number; decoy: number }[] = [
+      { real: 0, decoy: 0 },
+      { real: 0, decoy: 0 },
+    ];
+    for (let i = 0; i < 2000; i++) {
+      const { state: next, event } = stepEncounter(state, ward);
+      if (event.tag === 'SpellResolved') {
+        const bucket = counts[state.currentPhaseIdx];
+        if (bucket) {
+          if (event.spell.kind === 'Real') bucket.real++;
+          else bucket.decoy++;
+        }
+      }
+      state = next;
+      if (event.tag === 'EncounterEnded') break;
+    }
+    const ratio = (b: { real: number; decoy: number }): number =>
+      b.real + b.decoy === 0 ? 0 : b.real / (b.real + b.decoy);
+    // Both phases must have produced enough samples to evaluate.
+    expect(counts[0]!.real + counts[0]!.decoy).toBeGreaterThan(50);
+    expect(counts[1]!.real + counts[1]!.decoy).toBeGreaterThan(50);
+    expect(ratio(counts[0]!)).toBeGreaterThan(0.85);
+    expect(ratio(counts[1]!)).toBeLessThan(0.15);
+  });
+
+  it('Phase realRate falls back to enemy-level when omitted', () => {
+    // No phase-level realRate override; expect both phases to use the
+    // enemy-level rate (0.9 here).
+    const enemy = mkEnemy({ baseHp: hp(10_000), realRate: 0.9 });
+    const player = mkPlayer();
+    const ward = /dragon\d+/;
+    let state = startEncounter({ enemy, player, seed: 999 });
+    let real = 0;
+    let decoy = 0;
+    for (let i = 0; i < 1500; i++) {
+      const { state: next, event } = stepEncounter(state, ward);
+      if (event.tag === 'SpellResolved') {
+        if (event.spell.kind === 'Real') real++;
+        else decoy++;
+      }
+      state = next;
+      if (event.tag === 'EncounterEnded') break;
+    }
+    expect(real / (real + decoy)).toBeGreaterThan(0.85);
+  });
+
   it('1-phase encounter never emits PhaseAdvanced', () => {
     const enemy = mkEnemy({
       phases: [

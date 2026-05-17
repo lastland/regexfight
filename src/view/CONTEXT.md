@@ -180,7 +180,7 @@ v1.1 ships with one variant per dimension + default palette and no customization
 The composed sprite that represents the Player on the Encounter Canvas. Rendered at draw time as `body[shape][pose] + hair[style][pose] + cloth[style][pose] + weapon[style][pose]` with palette substitution for the slots above. Three poses: Idle, Hit, Counterattack.
 
 ### Enemy Figure
-The composed sprite that represents an Enemy on the Encounter Canvas. Four poses: Idle, Casting, Hit, Defeated. Authored per Enemy as a single sprite per pose (no paper-doll composition — Enemies are content, not customization). For v1.1, one Enemy (the tutorial) is authored.
+The composed sprite that represents an Enemy on the Encounter Canvas. Four poses: Idle, Casting, Hit, Defeated. Authored per Enemy as a single sprite per pose (no paper-doll composition — Enemies are content, not customization). For v1.1, one Enemy (the Floating Phantasm) is authored.
 
 > *Defeated* is implemented as desaturation + fade applied to the Idle pose, not a separate sprite, unless an Enemy specifies one.
 

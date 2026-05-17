@@ -23,7 +23,7 @@ type Enemy = {
 };
 ```
 
-`realRate` biases the Spell stream toward Reals (>0.5) or Decoys (<0.5). The tutorial uses `0.7` so the player sees more counter-opportunities and the fight feels combat-paced. See `combat/CONTEXT.md` for the gameplay implications and baseHp tuning advice.
+`realRate` biases the Spell stream toward Reals (>0.5) or Decoys (<0.5). Each Phase may also carry its own `realRate` — when present, it overrides the Enemy-level value for that Phase. Floating Phantasm authors `realRate: 0.7` on Phase 1 (brisk shape-learning) and `realRate: 0.5` on Phase 2 (max edge-Decoy exposure during the test). See `combat/CONTEXT.md` for the gameplay implications and baseHp tuning advice, and `src/combat/docs/adr/0006-per-phase-real-rate.md` for the design rationale.
 
 Used downstream by `run` (Campaign roster) and `combat` (consumed during an Encounter).
 
@@ -53,8 +53,11 @@ type Phase = {
   attack: Attack;
   realPool: string[];
   decoyPool: string[];
+  realRate?: number;   // optional override of the Enemy-level realRate
 };
 ```
+
+The optional `realRate` overrides the Enemy-level value for this Phase only — useful when distinct Phases want distinct Real/Decoy mixes (a faster shape-learning Phase 1 plus a Decoy-heavier Phase 2, for example). When omitted, falls back to the Enemy-level value.
 
 `combat` sees the same data as a runtime entity.
 

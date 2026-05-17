@@ -38,7 +38,7 @@ import {
 
 // Vite raw imports: bundles the YAML text into the JS at build time.
 import playerYamlText from '../../data/player.yaml?raw';
-import tutorialYamlText from '../../data/enemies/00-tutorial.yaml?raw';
+import javaFloatYamlText from '../../data/enemies/00-java-float.yaml?raw';
 
 import {
   addScore,
@@ -113,13 +113,13 @@ export function App(props: AppProps = {}) {
     let cancelled = false;
     void (async () => {
       try {
-        const [player, tutorial] = await Promise.all([
+        const [player, javaFloat] = await Promise.all([
           loadPlayerYaml(playerYamlText),
-          loadEnemyYaml(tutorialYamlText),
+          loadEnemyYaml(javaFloatYamlText),
         ]);
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cleanup may flip `cancelled` between the await and here; the typechecker can't see closure mutation.
         if (cancelled) return;
-        const enemiesLoaded = [tutorial];
+        const enemiesLoaded = [javaFloat];
         setEnemies(enemiesLoaded);
 
         // Try to restore from localStorage. If anything fails or there's no

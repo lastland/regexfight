@@ -62,6 +62,12 @@ export type EncounterState = {
     readonly attack: Attack;
     readonly realPool: readonly string[];
     readonly decoyPool: readonly string[];
+    /**
+     * Resolved probability that a drawn Spell is a Real in this Phase.
+     * Set at startEncounter() from `phase.realRate ?? enemy.realRate`; never
+     * mutated thereafter. See combat/CONTEXT.md "Real Rate" for semantics.
+     */
+    readonly realRate: number;
   }>;
   readonly currentPhaseIdx: number;
   readonly playerMaxHp: HP;
@@ -69,12 +75,6 @@ export type EncounterState = {
   readonly playerHp: HP;
   readonly enemyHp: HP;
   readonly playerAttack: Attack;
-  /**
-   * Probability that the next drawn Spell is a Real (vs a Decoy). Derived
-   * from the Enemy's `realRate` field at start, defaulting to 0.5 when
-   * the Enemy omits it. See combat/CONTEXT.md "Real Rate".
-   */
-  readonly realRate: number;
   readonly seed: number;
   readonly stepCount: number;
   readonly damageTakenThisAttempt: number;

@@ -70,6 +70,12 @@ export const PhaseSchema = z.object({
     .transform((n): Attack => toAttack(n)),
   realPool: z.array(z.string().min(1)).min(1).readonly(),
   decoyPool: z.array(z.string().min(1)).min(1).readonly(),
+  /**
+   * Optional per-Phase override of the Enemy-level `realRate`. When present,
+   * this Phase's Spell stream uses this rate; when absent, falls back to the
+   * Enemy-level value. See src/combat/docs/adr/0006-per-phase-real-rate.md.
+   */
+  realRate: z.number().gt(0).lt(1).optional(),
 });
 
 // --- Enemy ------------------------------------------------------------------

@@ -1,0 +1,118 @@
+# Floating Phantasm — the signature encounter.
+#
+# True Pattern: a stylistic subset of Java floating-point literal syntax.
+#   - decimal-only (no hex `0x...p...` floats)
+#   - optional leading sign (`+` / `-`)
+#   - optional decimal exponent (`e` / `E`, optional `+` / `-`)
+#   - no `f` / `F` / `d` / `D` type suffix
+#   - no underscore digit separators (`1_000.5` is rejected)
+#   - leading zeros in the integer part are forbidden (`01.0` is rejected)
+#   - a sign requires a digit before the decimal point
+#     (`-.5` and `+.5` are rejected; bare `.5` is a Real)
+#
+# Concrete examples:
+#   Real: 1.0, -2.5, 1e10, .5, 5., 5E+0, 2.E10, -1e10
+#   Decoy: 1, ., 1.5e, 01.0, -.5, 1.0f, 0x1p0, 1_000.5
+#
+# Authoring goals:
+#   Phase 1 broadens beyond the trivial — players see plain literals AND
+#   signed mantissas AND lowercase-`e` exponents. They will plausibly
+#   converge on a Ward like `[+-]?\d+(\.\d+)?(e\d+)?` after Phase 1.
+#   Phase-1 Decoys include shape-malformed near-misses (`1`, `.`, `1..5`,
+#   `42`) so the player learns *what is not a literal* early.
+#
+#   Phase 2 emits exclusively edge cases that falsify the Phase-1 Ward:
+#     Reals — leading dot (`.5`), trailing dot (`5.`), trailing-dot +
+#     exponent (`2.E10`), uppercase E with sign (`5E+0`), and the
+#     sign + int-only + exponent combo (`-1e10`).
+#     Decoys — incomplete exponent (`1.5e`, `1.5e+`), suffix forms
+#     (`1.0f`, `1.0d`), hex (`0x1p0`), underscores (`1_000.5`), double
+#     sign (`++1.0`), multi-dot (`1.5.6`), the special-value confusion
+#     (`NaN`), the leading-zero teacher (`01.0`), and the signed-leading-
+#     dot teacher (`-.5`).
+#
+# YAML note: every numeric-looking entry is single-quoted so it is parsed
+# as a string, not a YAML float. See src/content/CLAUDE.md.
+
+id: java-float
+name: Floating Phantasm
+
+# Style-narrowed Java FP literal regex. See header comment for the full rules.
+pattern: '^([+-]?(0|[1-9]\d*)\.\d*|\.\d+|[+-]?(0|[1-9]\d*)(?=[eE]))([eE][+-]?\d+)?$'
+
+baseHp: 20
+defeatBounty: 25
+flawlessBonus: 15
+
+phases:
+  # Phase 1 — broadened simple. Player learns the *shape* (sign, decimal,
+  # lowercase exponent) and the obvious-Decoy categories.
+  # realRate 0.7 keeps Phase 1 brisk (tutorial-paced).
+  - hpThreshold: 1.0
+    attack: 1
+    realRate: 0.7
+    realPool:
+      - '1.0'
+      - '2.5'
+      - '3.14'
+      - '0.5'
+      - '42.0'
+      - '7.25'
+      - '-1.0'
+      - '-2.5'
+      - '+3.14'
+      - '1e10'
+      - '2.5e3'
+      - '9.81e2'
+    decoyPool:
+      - hello
+      - regex
+      - cat
+      - meow
+      - 1+2
+      - 2*3
+      - '1'
+      - '.'
+      - 1..5
+      - '42'
+
+  # Phase 2 — exclusively edge cases. Each Real is a *learnable boundary*
+  # of the Pattern; each Decoy *kills* a specific over-broad Ward. With
+  # realRate 0.5, the player gets max exposure to the Decoy teachers.
+  - hpThreshold: 0.5
+    attack: 2
+    realRate: 0.5
+    realPool:
+      - '.5'            # leading dot — `\d+\.\d+`-style Wards reject
+      - '5.'            # trailing dot — same
+      - '+5.'           # signed trailing dot
+      - '1.5e-3'        # negative exponent
+      - '5E+0'          # uppercase E + explicit positive exponent sign
+      - '.5e10'         # leading dot + exponent
+      - '2.E10'         # trailing dot + uppercase E
+      - '5e-0'          # negative exponent with `0`
+      - '-1e10'         # sign + int-only mantissa + exponent
+    decoyPool:
+      - '1.5e'          # incomplete exponent
+      - '1.5e+'         # incomplete signed exponent
+      - 1.0f            # `f` type suffix — rejected here
+      - 1.0d            # `d` type suffix
+      - 0x1p0           # hex float — rejected here
+      - 1_000.5         # underscore separator — rejected here
+      - ++1.0           # double sign
+      - 1.5.6           # too many dots
+      - 'NaN'           # not a literal — it's Double.NaN
+      - '01.0'          # leading-zero teacher
+      - '-.5'           # signed-leading-dot teacher
+
+# Seed Spells — 3 Reals + 3 Decoys, all drawn from the Phase 1 pool so the
+# prep screen hints at the shape (`1.0` vanilla, `-2.5` sign, `1e10` exp)
+# and the rejection shape (`hello` non-numeric, `1` bare int, `1..5`
+# malformed dots) without spoiling Phase-2 edge cases.
+seedSpells:
+  - { text: '1.0', kind: Real }
+  - { text: '-2.5', kind: Real }
+  - { text: '1e10', kind: Real }
+  - { text: hello, kind: Decoy }
+  - { text: '1', kind: Decoy }
+  - { text: 1..5, kind: Decoy }

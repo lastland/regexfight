@@ -155,6 +155,45 @@ describe('EnemySchema', () => {
     }
   });
 
+  it('Phase realRate is optional and undefined when omitted', () => {
+    const parsed = EnemySchema.parse(validEnemyInput());
+    expect(parsed.phases[0]?.realRate).toBeUndefined();
+    expect(parsed.phases[1]?.realRate).toBeUndefined();
+  });
+
+  it('accepts a per-phase realRate override and round-trips it', () => {
+    const input = validEnemyInput();
+    const parsed = EnemySchema.parse({
+      ...input,
+      phases: [
+        { ...input.phases[0]!, realRate: 0.7 },
+        { ...input.phases[1]!, realRate: 0.4 },
+      ],
+    });
+    expect(parsed.phases[0]?.realRate).toBe(0.7);
+    expect(parsed.phases[1]?.realRate).toBe(0.4);
+  });
+
+  it('rejects a per-phase realRate outside (0, 1)', () => {
+    for (const badValue of [0, 1, -0.1, 1.1]) {
+      const input = validEnemyInput();
+      const result = EnemySchema.safeParse({
+        ...input,
+        phases: [{ ...input.phases[0]!, realRate: badValue }, input.phases[1]!],
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const issue = result.error.issues.find(
+          (i) =>
+            i.path[0] === 'phases' &&
+            i.path[1] === 0 &&
+            i.path[2] === 'realRate',
+        );
+        expect(issue).toBeDefined();
+      }
+    }
+  });
+
   it('rejects equal hpThresholds (not strictly decreasing)', () => {
     const bad = validEnemyInput();
     bad.phases[0]!.hpThreshold = 0.7;

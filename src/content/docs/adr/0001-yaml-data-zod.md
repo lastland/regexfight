@@ -23,7 +23,7 @@ The user picked external data files. The remaining decision is *how* to bridge t
 ```
 data/
 ├── enemies/
-│   └── 00-tutorial.yaml      # one file per Enemy
+│   └── 00-java-float.yaml    # one file per Enemy
 └── player.yaml               # base Player stats (HP, Attack)
 ```
 

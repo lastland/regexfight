@@ -38,13 +38,13 @@ afterEach(() => {
 });
 
 describe('App', () => {
-  it('boots, loads the tutorial enemy, and renders the PrepScreen', async () => {
+  it('boots, loads the Floating Phantasm enemy, and renders the PrepScreen', async () => {
     render(<App />);
 
     // After the async YAML load resolves, PrepScreen should be visible.
     await waitFor(
       () => {
-        expect(screen.getByText(/The First Lexer/i)).toBeTruthy();
+        expect(screen.getByText(/Floating Phantasm/i)).toBeTruthy();
       },
       { timeout: 2000 },
     );
@@ -52,16 +52,16 @@ describe('App', () => {
     // Before the first attempt against this Enemy, the seed spells render
     // under the Foresight/clairvoyance framing (PrepScreen.foresight = true).
     expect(screen.getByText(/Foresight/i)).toBeTruthy();
-    expect(screen.getByText('cat12')).toBeTruthy();
-    expect(screen.getByText('dog99')).toBeTruthy();
-    expect(screen.getByText('12cat')).toBeTruthy();
+    expect(screen.getByText('1.0')).toBeTruthy();
+    expect(screen.getByText('-2.5')).toBeTruthy();
+    expect(screen.getByText('hello')).toBeTruthy();
   });
 
   it('persists the Run to localStorage after the seed-on-arrival step', async () => {
     render(<App />);
     await waitFor(
       () => {
-        expect(screen.getByText(/The First Lexer/i)).toBeTruthy();
+        expect(screen.getByText(/Floating Phantasm/i)).toBeTruthy();
       },
       { timeout: 2000 },
     );
@@ -72,8 +72,8 @@ describe('App', () => {
       payload: { observationLogs: Record<string, unknown[]> };
     };
     expect(parsed.schemaVersion).toBe(1);
-    expect(parsed.payload.observationLogs['tutorial']).toBeDefined();
-    expect(parsed.payload.observationLogs['tutorial']!.length).toBeGreaterThan(0);
+    expect(parsed.payload.observationLogs['java-float']).toBeDefined();
+    expect(parsed.payload.observationLogs['java-float']!.length).toBeGreaterThan(0);
   });
 
   it('runs a full encounter through to post-mortem on a correct Ward', async () => {
@@ -88,17 +88,22 @@ describe('App', () => {
     // Wait for PrepScreen.
     await waitFor(
       () => {
-        expect(screen.queryByText(/The First Lexer/i)).toBeTruthy();
+        expect(screen.queryByText(/Floating Phantasm/i)).toBeTruthy();
       },
       { timeout: 2000 },
     );
 
-    // The tutorial pattern is /^[a-z]+\d{2,3}$/. A correct Ward.
+    // Floating Phantasm's exact Pattern (style-narrowed Java FP literal).
+    // A perfect Ward — sweeps both phases.
     const wardInput = document.querySelector(
       '#ward-source',
     );
     expect(wardInput).toBeTruthy();
-    fireEvent.change(wardInput!, { target: { value: '^[a-z]+\\d{2,3}$' } });
+    fireEvent.change(wardInput!, {
+      target: {
+        value: '^([+-]?(0|[1-9]\\d*)\\.\\d*|\\.\\d+|[+-]?(0|[1-9]\\d*)(?=[eE]))([eE][+-]?\\d+)?$',
+      },
+    });
 
     // Find and click the Start encounter button.
     const startBtn = Array.from(
