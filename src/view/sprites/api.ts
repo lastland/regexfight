@@ -16,12 +16,14 @@ import {
   rasterizeEnemy,
   rasterizeWardSigil,
   rasterizeSpellProjectile,
+  type EnemyPhaseVariant,
 } from './composition';
 
 export type PlayerPose = 'idle' | 'hit' | 'counterattack';
 export type EnemyPose = 'idle' | 'casting' | 'hit' | 'defeated';
 export type WardSigilState = 'idle' | 'active';
 export type SpellKindForVisual = 'Real' | 'Decoy';
+export type { EnemyPhaseVariant };
 
 export type PlayerSkin = {
   readonly bodyShape: 'male' | 'female';
@@ -47,8 +49,11 @@ export function getPlayerFigure(
   return composePlayerFigure(pose, skin);
 }
 
-export function getEnemyFigure(pose: EnemyPose): HTMLCanvasElement {
-  return rasterizeEnemy(pose);
+export function getEnemyFigure(
+  pose: EnemyPose,
+  variant: EnemyPhaseVariant = 'phase1',
+): HTMLCanvasElement {
+  return rasterizeEnemy(pose, variant);
 }
 
 export function getWardSigil(

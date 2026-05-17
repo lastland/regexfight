@@ -58,7 +58,7 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
   const { speed, cycleSpeed } = useSpeedMultiplier();
 
   // Displayed HP lags sim HP — advances one SpellResolved at a time at the
-  // canvas's per-Outcome Impact Moment. See ADR-0006 (view).
+  // canvas's per-Outcome Impact Moment. See ADR-0007 (view).
   const [lastImpactedEventIdx, setLastImpactedEventIdx] = useState(-1);
 
   // Reset on encounter-instance change (events array emptied between attempts).

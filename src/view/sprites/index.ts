@@ -6,6 +6,7 @@
 export type {
   PlayerPose,
   EnemyPose,
+  EnemyPhaseVariant,
   WardSigilState,
   SpellKindForVisual,
   PlayerSkin,

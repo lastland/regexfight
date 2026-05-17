@@ -37,6 +37,7 @@ import {
   getSpellProjectile,
   getWardSigil,
   loadSkinFromStorage,
+  type EnemyPhaseVariant,
   type EnemyPose,
   type PlayerPose,
   type PlayerSkin,
@@ -57,6 +58,10 @@ import {
   type FlashStyle,
 } from './effects/flashOverlay';
 import { getShakeOffset } from './effects/screenShake';
+import {
+  drawOutcomeText,
+  type OutcomeTextState,
+} from './effects/outcomeText';
 
 // ---------------------------------------------------------------------------
 // Phase timing (ms at 1×). Scaled by SpeedMultiplier at runtime.
@@ -69,6 +74,18 @@ const PHASE_MS = {
   resolution: 600,
   aftermath: 150,
 } as const;
+
+/**
+ * Duration of the Enemy Phase Transformation animation at 1× speed.
+ * Scales with the Speed Multiplier. See CONTEXT.md "Phase Transformation".
+ */
+const PHASE_TRANSFORM_MS = 800;
+
+/**
+ * Fraction of the transformation duration at which the Enemy sprite
+ * swap happens. Falls within the silhouette peak so the swap is hidden.
+ */
+const PHASE_TRANSFORM_SWAP_AT = 0.5;
 
 const GLYPH_MS_AT_1X = 40;
 
@@ -142,6 +159,13 @@ type PhaseAdvanceAnimation = {
   kind: 'phaseAdvance';
   event: Extract<EncounterEvent, { tag: 'PhaseAdvanced' }>;
   startTime: number;
+  /**
+   * Enemy variant shown during the first half of the transformation
+   * (before the white silhouette peak hides the sprite swap).
+   */
+  preTransformVariant: EnemyPhaseVariant;
+  /** Enemy variant shown from the silhouette peak onward. */
+  postTransformVariant: EnemyPhaseVariant;
 };
 
 type EndAnimation = {
@@ -169,6 +193,14 @@ type AnimState = {
     rect: { x: number; y: number; w: number; h: number };
     startTime: number;
   } | null;
+  /** COUNTER! / DODGE! center-screen text. See ADR-0007 (view). */
+  outcomeText: OutcomeTextState | null;
+  /**
+   * Which sprite variant the Enemy Figure is currently shown as. Mutated
+   * mid-`phaseAdvance` animation at the silhouette peak, persisted into
+   * AnimState so subsequent spell animations use the new variant.
+   */
+  enemyVariant: EnemyPhaseVariant;
   // The previously-rendered terminal-event flag, so we can stop ticking.
   encounterEnded: boolean;
 };
@@ -183,6 +215,8 @@ function initialState(): AnimState {
     nextDamageId: 1,
     shakeStart: null,
     flash: null,
+    outcomeText: null,
+    enemyVariant: 'phase1',
     encounterEnded: false,
   };
 }
@@ -319,7 +353,7 @@ export type EncounterCanvasProps = {
    * Called once per SpellResolved event at its Impact Moment — the
    * per-Outcome instant within Resolution at which the consequence
    * visibly lands. The screen uses this to advance the displayed HP
-   * (which lags the sim HP). See ADR-0006 (view).
+   * (which lags the sim HP). See ADR-0007 (view).
    *
    * Per-Outcome impact tick:
    *   - Counterattack → end of Resolution (projectile arrives at enemy)
@@ -450,12 +484,31 @@ export function EncounterCanvas(props: EncounterCanvasProps): JSX.Element {
               impactFired: false,
             };
             // The per-Outcome flash + damage number + onSpellImpact callback
-            // fire at the per-Outcome Impact Moment (ADR-0006 view):
+            // fire at the per-Outcome Impact Moment (ADR-0007 view):
             //   - Hit/Backfire → start of Resolution (handled in onResolutionEnter)
             //   - Counterattack → end of Resolution (handled in advanceActive)
             //   - Dodge → never (no impact to gate on)
           } else if (ev.tag === 'PhaseAdvanced') {
-            state.active = { kind: 'phaseAdvance', event: ev, startTime: now };
+            // Phase Transformation: enemy crossfades from the current
+            // variant to the next-phase variant under a white-silhouette
+            // overlay. Combat pauses (we withhold onRequestNextEvent)
+            // until the transformation completes.
+            //
+            // Variant progression: only phase1 ↔ phase2 are authored. Future
+            // enemies with more Phases stay on phase2 after the first
+            // transformation; the animation still plays (per CONTEXT.md
+            // "Phase Transformation": the silhouette is still readable even
+            // when no real swap happens).
+            const pre = state.enemyVariant;
+            state.active = {
+              kind: 'phaseAdvance',
+              event: ev,
+              startTime: now,
+              preTransformVariant: pre,
+              postTransformVariant: 'phase2',
+            };
+            // Brief shake to underline the transformation impact.
+            state.shakeStart = now;
           } else {
             state.active = { kind: 'end', event: ev, startTime: now };
           }
@@ -511,9 +564,18 @@ function advanceActive(
   if (!active) return;
 
   if (active.kind === 'phaseAdvance') {
-    // Phase-advance has no per-spell animation — consume immediately and
-    // request the next event. The HP-bar white flash is rendered by the
-    // EncounterScreen via flashKey (derived from event count).
+    // Phase Transformation: hold for PHASE_TRANSFORM_MS, swapping the
+    // Enemy variant at the midpoint (under the silhouette peak). Only
+    // call onRequestNextEvent once the transformation is done — the
+    // sim is effectively paused for the duration. See CONTEXT.md
+    // "Phase Transformation".
+    const transformDur = PHASE_TRANSFORM_MS / speed;
+    const elapsed = now - active.startTime;
+    const t = elapsed / transformDur;
+    if (t >= PHASE_TRANSFORM_SWAP_AT && state.enemyVariant !== active.postTransformVariant) {
+      state.enemyVariant = active.postTransformVariant;
+    }
+    if (elapsed < transformDur) return;
     state.active = null;
     props.onRequestNextEvent();
     return;
@@ -533,7 +595,7 @@ function advanceActive(
   if (elapsed < dur) return;
 
   // Phase transition. Per-Outcome Impact Moment determines when the visible
-  // consequence lands (ADR-0006 view):
+  // consequence lands (ADR-0007 view):
   //   - Hit/Backfire: start of Resolution → handled below in `next === 'resolution'`.
   //   - Counterattack: end of Resolution (just before Aftermath) → handled here.
   //   - Dodge: never fires (no consequence to gate on).
@@ -573,8 +635,29 @@ function onResolutionEnter(
   if (anim.event.outcome === 'Hit' || anim.event.outcome === 'Backfire') {
     fireImpact(anim, state, now, canvas, props);
   }
+  // Dodge: spawn DODGE! text at start of Resolution (Dodge has no Impact
+  // Moment, so we trigger the celebratory text when the dodge animation
+  // begins). Counterattack's COUNTER! text fires from fireImpact.
+  if (anim.event.outcome === 'Dodge') {
+    spawnOutcomeText(state, 'DODGE', now, canvas);
+  }
   // Suppress lint warning about unused parameter
   void speed;
+}
+
+function spawnOutcomeText(
+  state: AnimState,
+  kind: OutcomeTextState['kind'],
+  now: number,
+  canvas: HTMLCanvasElement,
+): void {
+  const rect = canvas.getBoundingClientRect();
+  state.outcomeText = {
+    kind,
+    startTime: now,
+    cx: rect.width / 2,
+    cy: rect.height / 2,
+  };
 }
 
 /**
@@ -627,8 +710,29 @@ function fireImpact(
     state.damageNumberStyles.set(id, pickDamageColor(damaged.side, outcome as 'Counterattack' | 'Hit' | 'Backfire'));
   }
 
-  // Notify the screen so it can advance the displayed HP. ADR-0006 (view).
+  // Counterattack: spawn the COUNTER! text overlay at the Impact Moment
+  // (end of Resolution, when the reversed projectile reaches the enemy).
+  if (outcome === 'Counterattack') {
+    spawnOutcomeText(state, 'COUNTER', now, canvas);
+  }
+
+  // Notify the screen so it can advance the displayed HP. ADR-0007 (view).
   props.onSpellImpact?.(anim.eventIdx);
+}
+
+/**
+ * Phase Transformation silhouette alpha curve. Triangle peaking at the
+ * swap midpoint so the sprite change is hidden under the white-out.
+ *   t ∈ [0, swap)   → ramps 0 → 1
+ *   t = swap         → 1 (peak)
+ *   t ∈ (swap, 1]   → ramps 1 → 0
+ */
+function phaseTransformSilhouetteAlpha(t: number): number {
+  if (t <= 0 || t >= 1) return 0;
+  if (t < PHASE_TRANSFORM_SWAP_AT) {
+    return t / PHASE_TRANSFORM_SWAP_AT;
+  }
+  return (1 - t) / (1 - PHASE_TRANSFORM_SWAP_AT);
 }
 
 function damageInfo(
@@ -722,6 +826,13 @@ function drawScene(
     return alive;
   });
 
+  // Outcome Text Overlay (COUNTER! / DODGE!). Drawn last so it sits on
+  // top of figures, flash, and damage numbers.
+  if (state.outcomeText) {
+    const alive = drawOutcomeText(ctx, state.outcomeText, now, speed);
+    if (!alive) state.outcomeText = null;
+  }
+
   ctx.restore();
 }
 
@@ -755,7 +866,22 @@ function drawFigures(
     }
   }
 
-  const enemySprite = getEnemyFigure(enemyPose);
+  // Pick enemy variant. During a phase-transform animation we render
+  // pre/post explicitly based on the swap timing; otherwise use the
+  // persisted state.enemyVariant.
+  let enemyVariant = state.enemyVariant;
+  let transformT: number | null = null;
+  if (active && active.kind === 'phaseAdvance') {
+    const dur = PHASE_TRANSFORM_MS / speed;
+    const elapsed = now - active.startTime;
+    transformT = Math.max(0, Math.min(1, elapsed / dur));
+    enemyVariant =
+      transformT < PHASE_TRANSFORM_SWAP_AT
+        ? active.preTransformVariant
+        : active.postTransformVariant;
+  }
+
+  const enemySprite = getEnemyFigure(enemyPose, enemyVariant);
   ctx.drawImage(
     enemySprite,
     layout.enemyX,
@@ -772,6 +898,26 @@ function drawFigures(
       enemySprite.width * ENEMY_FIGURE_SCALE,
       enemySprite.height * ENEMY_FIGURE_SCALE,
     );
+  }
+
+  // Phase Transformation white silhouette — fades in to a peak at
+  // PHASE_TRANSFORM_SWAP_AT (covering the sprite swap), then fades out.
+  if (transformT !== null) {
+    const alpha = phaseTransformSilhouetteAlpha(transformT);
+    if (alpha > 0) {
+      const prevAlpha = ctx.globalAlpha;
+      const prevFill = ctx.fillStyle;
+      ctx.globalAlpha = prevAlpha * alpha;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(
+        layout.enemyX,
+        layout.enemyY,
+        enemySprite.width * ENEMY_FIGURE_SCALE,
+        enemySprite.height * ENEMY_FIGURE_SCALE,
+      );
+      ctx.globalAlpha = prevAlpha;
+      ctx.fillStyle = prevFill;
+    }
   }
 
   const playerSprite = getPlayerFigure(playerPose, skin);

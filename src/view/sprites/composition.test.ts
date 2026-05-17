@@ -124,6 +124,21 @@ describe('getEnemyFigure', () => {
     const idle = getEnemyFigure('idle');
     expect(defeated).toBe(idle);
   });
+
+  it('returns distinct canvases per Phase variant (phase1 vs phase2)', () => {
+    // The Phase Transformation animation depends on phase1 and phase2
+    // rendering as different sprites; if they collided in the cache
+    // the swap would be invisible.
+    const idleP1 = getEnemyFigure('idle', 'phase1');
+    const idleP2 = getEnemyFigure('idle', 'phase2');
+    expect(idleP1).not.toBe(idleP2);
+  });
+
+  it('defaults variant to phase1 when omitted', () => {
+    const explicit = getEnemyFigure('idle', 'phase1');
+    const defaulted = getEnemyFigure('idle');
+    expect(defaulted).toBe(explicit);
+  });
 });
 
 describe('getWardSigil', () => {

@@ -33,6 +33,7 @@ import { hairSprites } from './assets/player-hair';
 import { clothSprites } from './assets/player-cloth';
 import { weaponSprites } from './assets/player-weapon';
 import { enemySprites } from './assets/enemy';
+import { enemyPhase2Sprites } from './assets/enemy-phase2';
 import { wardSigilSprites } from './assets/ward-sigil';
 import {
   ORB_PALETTE_BY_KIND,
@@ -93,20 +94,35 @@ export function composePlayerFigure(
   ]);
 }
 
-export function rasterizeEnemy(pose: EnemyPose): HTMLCanvasElement {
-  const sprite = enemySprites[pose];
+export type EnemyPhaseVariant = 'phase1' | 'phase2';
+
+const VARIANT_SPRITES: Record<EnemyPhaseVariant, typeof enemySprites> = {
+  phase1: enemySprites,
+  phase2: enemyPhase2Sprites,
+};
+
+export function rasterizeEnemy(
+  pose: EnemyPose,
+  variant: EnemyPhaseVariant = 'phase1',
+): HTMLCanvasElement {
+  const sprites = VARIANT_SPRITES[variant];
+  const sprite = sprites[pose];
   if (sprite === null) {
     // Defeated is null by design — the renderer is expected to apply
     // desaturation + alpha to the idle sprite (ADR-0006). We surface the
     // contract by returning the idle canvas here so a caller that hasn't
     // implemented the effect still draws *something*; documented as such.
     return getRasterizedSprite(
-      `enemy:idle`,
-      enemySprites.idle as AsciiSprite,
+      `enemy:${variant}:idle`,
+      sprites.idle as AsciiSprite,
       passthroughResolver,
     );
   }
-  return getRasterizedSprite(`enemy:${pose}`, sprite, passthroughResolver);
+  return getRasterizedSprite(
+    `enemy:${variant}:${pose}`,
+    sprite,
+    passthroughResolver,
+  );
 }
 
 export function rasterizeWardSigil(

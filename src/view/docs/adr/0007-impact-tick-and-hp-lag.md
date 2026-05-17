@@ -1,4 +1,4 @@
-# ADR-0006 (view): Per-Outcome Impact Tick and Displayed-HP Lag
+# ADR-0007 (view): Per-Outcome Impact Tick and Displayed-HP Lag
 
 **Date**: 2026-05-16
 **Status**: Accepted

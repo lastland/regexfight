@@ -102,6 +102,24 @@ Projectile phases past the player and fizzles out. Subtle blue shimmer behind th
 ### Phase Transition Effect
 When an Enemy Phase advances (see `combat` glossary), the HP bar briefly flashes white as the Phase indicator increments. Fires within the Aftermath of the Spell that triggered the transition.
 
+### Phase Transformation
+The on-canvas animation that plays when an Enemy Phase advances. The encounter is effectively paused (the Encounter Canvas withholds `onRequestNextEvent`) while the Enemy Figure transforms from its previous-phase variant to its current-phase variant:
+
+1. **White silhouette** overlays the Enemy Figure, fading in over the first half of the animation.
+2. **Peak** — pure white silhouette holds briefly while the sprite swap happens behind it.
+3. **Reveal** — silhouette fades out, revealing the new-phase variant.
+4. **Screen shake** runs across the full transformation.
+
+Total ~800 ms at 1×; scales with the Speed Multiplier. Enemies whose sprite assets declare per-Phase variants get a visible transformation; enemies without variants reuse the Phase-1 art and the animation degenerates to a brief white flash (still readable as "something changed").
+
+### Outcome Text Overlay
+Large center-screen text that appears at the Impact Moment to celebrate the player's successful Ward decision. Two outcomes show text:
+
+- **Counterattack** → `COUNTER!` (green) — fires at the Impact Moment (end of Resolution).
+- **Dodge** → `DODGE!` (blue) — fires at the start of Resolution (Dodge has no Impact Moment).
+
+Rendered in a retro pixel font (Press Start 2P, self-hosted via `@fontsource`) at a large size, with a brief scale-pop entry and a fade-out. Lifetime is ~600 ms at 1× and scales with the Speed Multiplier, with a perceptibility floor (~250 ms minimum) so the text registers even at 10×. Hit and Backfire intentionally show no text — flash + HP drop already convey the failure.
+
 ## Sprites & composition
 
 ### Pixel Rendering
