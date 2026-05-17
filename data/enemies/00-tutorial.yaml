@@ -23,7 +23,7 @@ id: tutorial
 name: The First Lexer
 pattern: '^[a-z]+\d{2,3}$'
 
-baseHp: 4
+baseHp: 10
 defeatBounty: 10
 flawlessBonus: 5
 # baseHp tuned for the counterattack-only damage model: only Captures
