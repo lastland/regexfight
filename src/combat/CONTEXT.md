@@ -66,6 +66,11 @@ One fight against one Enemy, from start to one HP hitting 0. Composed of an orde
 
 An Encounter is a pure state machine driven by a deterministic Spell stream and a frozen Ward.
 
+### Real Rate
+A per-Enemy probability — the chance that any given drawn Spell is a Real (versus a Decoy). Optional in enemy YAML; defaults to `0.5` (even mix) if omitted. The tutorial sets `realRate: 0.7`, biasing toward Reals so that counter-attack opportunities arrive more frequently and the encounter feels combat-paced rather than wait-paced.
+
+Real Rate affects expected encounter duration: only Counterattacks damage the Enemy, so higher Real Rate means faster Encounters (more counter-opportunities per second). `baseHp` should be tuned with the Real Rate in mind — at ratio `r` and player attack `a`, expected ticks-to-win is roughly `baseHp / (r × a)`.
+
 ### Attempt
 A single instance of an Encounter — one start, one outcome (Victory or Defeat). The Player may have many Attempts against the same Encounter; each Attempt produces its own ephemeral **Attempt Log**.
 

@@ -137,6 +137,24 @@ describe('EnemySchema', () => {
     }
   });
 
+  it('defaults realRate to 0.5 when omitted', () => {
+    const parsed = EnemySchema.parse(validEnemyInput());
+    expect(parsed.realRate).toBe(0.5);
+  });
+
+  it('accepts a realRate override and round-trips it', () => {
+    const input = { ...validEnemyInput(), realRate: 0.7 };
+    const parsed = EnemySchema.parse(input);
+    expect(parsed.realRate).toBe(0.7);
+  });
+
+  it('rejects realRate outside (0, 1)', () => {
+    for (const bad of [0, 1, -0.1, 1.1]) {
+      const input = { ...validEnemyInput(), realRate: bad };
+      expect(EnemySchema.safeParse(input).success).toBe(false);
+    }
+  });
+
   it('rejects equal hpThresholds (not strictly decreasing)', () => {
     const bad = validEnemyInput();
     bad.phases[0]!.hpThreshold = 0.7;

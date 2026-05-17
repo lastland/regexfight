@@ -69,6 +69,12 @@ export type EncounterState = {
   readonly playerHp: HP;
   readonly enemyHp: HP;
   readonly playerAttack: Attack;
+  /**
+   * Probability that the next drawn Spell is a Real (vs a Decoy). Derived
+   * from the Enemy's `realRate` field at start, defaulting to 0.5 when
+   * the Enemy omits it. See combat/CONTEXT.md "Real Rate".
+   */
+  readonly realRate: number;
   readonly seed: number;
   readonly stepCount: number;
   readonly damageTakenThisAttempt: number;

@@ -57,6 +57,7 @@ export function startEncounter(params: {
     playerHp: player.baseHp,
     enemyHp: enemy.baseHp,
     playerAttack: player.baseAttack,
+    realRate: enemy.realRate,
     seed,
     stepCount: 0,
     damageTakenThisAttempt: 0,
@@ -85,7 +86,7 @@ function pickSpell(state: EncounterState): Spell {
   const kindDraw = stepRng();
   const indexDraw = stepRng();
 
-  const wantReal = kindDraw < 0.5;
+  const wantReal = kindDraw < state.realRate;
   const primary = wantReal ? phase.realPool : phase.decoyPool;
   const fallback = wantReal ? phase.decoyPool : phase.realPool;
   const pool = primary.length > 0 ? primary : fallback;

@@ -100,6 +100,13 @@ const EnemyBaseSchema = z.object({
     .int()
     .nonnegative()
     .transform((n): Score => toScore(n)),
+  /**
+   * P(drawn Spell is Real) per pick. Optional in YAML; default 0.5 = even
+   * mix. Higher values bias toward Reals (more counter-opportunities per
+   * second, faster fights). See combat/CONTEXT.md "Real Rate" for the
+   * gameplay implications and baseHp tuning advice.
+   */
+  realRate: z.number().gt(0).lt(1).default(0.5),
   phases: z.array(PhaseSchema).min(1).readonly(),
   seedSpells: z.array(SpellSchema).readonly(),
 });

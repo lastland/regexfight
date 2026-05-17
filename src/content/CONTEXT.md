@@ -7,7 +7,7 @@ The audience for this context is *enemy designers* (in v1, just the developer), 
 ## Terms
 
 ### Enemy
-A typed configured entity assembled from one YAML file under `data/enemies/`. Holds the Pattern, the Phase pools, the stat values (HP, defeat bounty, flawless bonus), and the Seed Spells.
+A typed configured entity assembled from one YAML file under `data/enemies/`. Holds the Pattern, the Phase pools, the stat values (HP, defeat bounty, flawless bonus), the Seed Spells, and an optional **Real Rate**.
 
 ```ts
 type Enemy = {
@@ -17,10 +17,13 @@ type Enemy = {
   baseHp: HP;
   defeatBounty: Score;
   flawlessBonus: Score;
+  realRate?: number;   // 0..1 (exclusive); default 0.5 (even mix)
   phases: Phase[];
   seedSpells: Spell[];
 };
 ```
+
+`realRate` biases the Spell stream toward Reals (>0.5) or Decoys (<0.5). The tutorial uses `0.7` so the player sees more counter-opportunities and the fight feels combat-paced. See `combat/CONTEXT.md` for the gameplay implications and baseHp tuning advice.
 
 Used downstream by `run` (Campaign roster) and `combat` (consumed during an Encounter).
 

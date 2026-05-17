@@ -25,6 +25,7 @@ function mkEnemy(overrides?: Partial<Enemy>): Enemy {
     baseHp: hp(100),
     defeatBounty: score(50),
     flawlessBonus: score(25),
+    realRate: 0.5,
     phases: [
       {
         hpThreshold: 1.0,
@@ -113,6 +114,45 @@ describe('encounter — pattern invariance', () => {
       }),
       { numRuns: 25 },
     );
+  });
+
+  it('realRate biases the kind distribution of drawn Spells', () => {
+    // A large sample size + property test over seeds is needed because any
+    // single seed's distribution can drift from the underlying probability.
+    // We compare two encounters with the same seed but realRate 0.9 vs 0.1.
+    // Use a never-matching, never-rejecting Ward so the encounter doesn't
+    // end early — actually, use a Ward that only Counters Reals so player
+    // doesn't die. Easiest: use a perfect Ward so player never dies and
+    // the encounter ends only when enemy dies. We make the enemy unkillable
+    // via huge baseHp so we get many samples.
+    const ward = /dragon\d+/;
+    const player = mkPlayer();
+    const enemyHi = mkEnemy({ baseHp: hp(10_000), realRate: 0.9 });
+    const enemyLo = mkEnemy({ baseHp: hp(10_000), realRate: 0.1 });
+
+    const sample = (enemy: Enemy): { real: number; decoy: number } => {
+      let state = startEncounter({ enemy, player, seed: 12345 });
+      let real = 0;
+      let decoy = 0;
+      for (let i = 0; i < 2000; i++) {
+        const { state: next, event } = stepEncounter(state, ward);
+        if (event.tag === 'SpellResolved') {
+          if (event.spell.kind === 'Real') real++;
+          else decoy++;
+        }
+        state = next;
+        if (event.tag === 'EncounterEnded') break;
+      }
+      return { real, decoy };
+    };
+
+    const hiStats = sample(enemyHi);
+    const loStats = sample(enemyLo);
+    const hiRatio = hiStats.real / (hiStats.real + hiStats.decoy);
+    const loRatio = loStats.real / (loStats.real + loStats.decoy);
+    // Both should be near their nominal rates within statistical wiggle.
+    expect(hiRatio).toBeGreaterThan(0.85);
+    expect(loRatio).toBeLessThan(0.15);
   });
 
   it('1-phase encounter never emits PhaseAdvanced', () => {

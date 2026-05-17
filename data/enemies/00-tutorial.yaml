@@ -26,22 +26,42 @@ pattern: '^[a-z]+\d{2,3}$'
 baseHp: 10
 defeatBounty: 10
 flawlessBonus: 5
-# baseHp tuned for the counterattack-only damage model: only Captures
-# (Real spells the Ward matches) damage the enemy; Decoys never do. Half
-# the spell stream is Decoys, so the expected ticks-to-win is ~2 × baseHp.
+# 70% of drawn Spells are Real, 30% Decoys. More counter-opportunities
+# per second makes the fight feel combat-paced rather than wait-paced.
+# Combined with the counterattack-only damage model, this shortens
+# expected encounter duration — `baseHp` is tuned accordingly.
+realRate: 0.7
 
 phases:
   # Phase 1 — coarse shape. Several plausible Wards pass here.
+  # Enlarged pools give the player more pattern-matching variety under
+  # the 7:3 ratio; without enlargement the same handful of strings
+  # would repeat too quickly to feel like an evolving corpus.
   - hpThreshold: 1.0
     attack: 1
     realPool:
       - cat12
       - dog99
       - fish123
+      - bird25
+      - owl42
+      - fox100
+      - hen22
+      - bee10
+      - ant789
+      - ram66
+      - wolf07
+      - lion50
     decoyPool:
       - 12cat        # digits-first — wrong order
       - meow         # no digits
       - cat-12       # punctuation breaks the simple shape
+      - zebra        # no digits — all letters
+      - panda        # no digits — all letters
+      - '4242'       # all digits — no letters
+      - dog.42       # punctuation
+      - bird 25      # whitespace
+      - '99'         # all digits, no letters
 
   # Phase 2 — distinguishing edge cases. The decoys here are the strings
   # that survive the most common Phase-1-plausible Wards.
@@ -51,16 +71,29 @@ phases:
       - zoo10        # exactly the 2-digit lower boundary
       - pig999       # exactly the 3-digit upper boundary
       - apple42
+      - frog77
+      - koala500
+      - newt88
+      - moth100
+      - swan12
     decoyPool:
       - cat1         # 1 digit  — defeats ^[a-z]+\d+$
       - cat1234      # 4 digits — defeats ^[a-z]+\d+$
       - Cat12        # uppercase — defeats ^\w+$
       - cat_12       # underscore — defeats ^\w+$
+      - pig1         # 1 digit — same family as cat1
+      - owl9999      # 4 digits — same family as cat1234
+      - Dog42        # uppercase variant
+      - frog_88      # underscore variant
+      - rat          # all letters, no digits — easy filter, padding
+      - '100'        # all digits — easy filter, padding
 
-# Seed Spells: 2 Reals + 2 Decoys drawn from Phase 1 only, so the prep
+# Seed Spells: 3 Reals + 3 Decoys drawn from Phase 1 only, so the prep
 # screen suggests the shape without spoiling the Phase-2 edge cases.
 seedSpells:
   - { text: cat12, kind: Real }
   - { text: dog99, kind: Real }
+  - { text: fish123, kind: Real }
   - { text: 12cat, kind: Decoy }
   - { text: meow, kind: Decoy }
+  - { text: cat-12, kind: Decoy }
