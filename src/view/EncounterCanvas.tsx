@@ -127,8 +127,15 @@ type Phase = 'invocation' | 'travel' | 'preImpact' | 'resolution' | 'aftermath';
 type SpellAnimation = {
   kind: 'spell';
   event: Extract<EncounterEvent, { tag: 'SpellResolved' }>;
+  eventIdx: number;
   phase: Phase;
   phaseStart: number;
+  /**
+   * True once `onSpellImpact` has fired for this spell. Prevents
+   * double-fire across re-renders of the long-lived rAF loop.
+   * Dodge stays `false` for the whole animation since it has no impact.
+   */
+  impactFired: boolean;
 };
 
 type PhaseAdvanceAnimation = {
@@ -308,11 +315,28 @@ export type EncounterCanvasProps = {
    * Must NOT be called after seeing an `EncounterEnded` event.
    */
   onRequestNextEvent: () => void;
+  /**
+   * Called once per SpellResolved event at its Impact Moment — the
+   * per-Outcome instant within Resolution at which the consequence
+   * visibly lands. The screen uses this to advance the displayed HP
+   * (which lags the sim HP). See ADR-0006 (view).
+   *
+   * Per-Outcome impact tick:
+   *   - Counterattack → end of Resolution (projectile arrives at enemy)
+   *   - Hit / Backfire → start of Resolution (projectile reaches player)
+   *   - Dodge          → not fired (no impact to gate on)
+   *
+   * `eventIdx` is the index into `props.events` of the SpellResolved
+   * event whose impact has just landed.
+   */
+  onSpellImpact?: (eventIdx: number) => void;
   speed: SpeedMultiplier;
   /**
    * Test-only escape hatch. When true, the canvas calls
    * `onRequestNextEvent()` on every animation frame until it sees an
-   * `EncounterEnded` event. See `src/app/App.test.tsx`. Production must
+   * `EncounterEnded` event, and fires `onSpellImpact` synchronously
+   * for each SpellResolved event so test assertions on displayed HP
+   * remain valid. See `src/app/App.test.tsx`. Production must
    * not pass this — production pacing is driven by the animation state
    * machine in this file.
    */
@@ -344,18 +368,35 @@ export function EncounterCanvas(props: EncounterCanvasProps): JSX.Element {
 
   // Test-only autoTick: synchronously request the next event on each frame
   // until EncounterEnded. Bypasses the animation state machine.
+  //
+  // Also fires `onSpellImpact` synchronously for every SpellResolved event
+  // that arrived since the last tick, so assertions on displayed HP (which
+  // gates on impact in the production path) remain valid in tests.
   const autoTick = props.autoTick === true;
   const events = props.events;
   const onRequestNextEvent = props.onRequestNextEvent;
+  const onSpellImpact = props.onSpellImpact;
+  const autoTickImpactedIdxRef = useRef(-1);
   useEffect(() => {
-    if (!autoTick) return;
+    if (!autoTick) {
+      autoTickImpactedIdxRef.current = -1;
+      return;
+    }
+    if (onSpellImpact) {
+      for (let i = autoTickImpactedIdxRef.current + 1; i < events.length; i++) {
+        if (events[i]?.tag === 'SpellResolved') {
+          onSpellImpact(i);
+        }
+      }
+      autoTickImpactedIdxRef.current = events.length - 1;
+    }
     const last = events.length > 0 ? events[events.length - 1] : undefined;
     if (last && last.tag === 'EncounterEnded') return;
     const id = requestAnimationFrame(() => {
       onRequestNextEvent();
     });
     return () => { cancelAnimationFrame(id); };
-  }, [autoTick, events, onRequestNextEvent]);
+  }, [autoTick, events, onRequestNextEvent, onSpellImpact]);
 
   // Main animation loop. Mounts once.
   useEffect(() => {
@@ -403,12 +444,16 @@ export function EncounterCanvas(props: EncounterCanvasProps): JSX.Element {
             state.active = {
               kind: 'spell',
               event: ev,
+              eventIdx: idx,
               phase: 'invocation',
               phaseStart: now,
+              impactFired: false,
             };
-            // Counterattack triggers the green flash on enemy; Hit/Backfire
-            // schedule it during their Resolution phase entry. We schedule
-            // all flashes when the *Resolution* phase enters (below).
+            // The per-Outcome flash + damage number + onSpellImpact callback
+            // fire at the per-Outcome Impact Moment (ADR-0006 view):
+            //   - Hit/Backfire → start of Resolution (handled in onResolutionEnter)
+            //   - Counterattack → end of Resolution (handled in advanceActive)
+            //   - Dodge → never (no impact to gate on)
           } else if (ev.tag === 'PhaseAdvanced') {
             state.active = { kind: 'phaseAdvance', event: ev, startTime: now };
           } else {
@@ -487,8 +532,18 @@ function advanceActive(
   const elapsed = now - active.phaseStart;
   if (elapsed < dur) return;
 
-  // Phase transition. On entry to Resolution, fire the per-Outcome flash,
-  // schedule shake on Hit, schedule damage number.
+  // Phase transition. Per-Outcome Impact Moment determines when the visible
+  // consequence lands (ADR-0006 view):
+  //   - Hit/Backfire: start of Resolution → handled below in `next === 'resolution'`.
+  //   - Counterattack: end of Resolution (just before Aftermath) → handled here.
+  //   - Dodge: never fires (no consequence to gate on).
+  if (active.phase === 'resolution' && !active.impactFired) {
+    if (active.event.outcome === 'Counterattack') {
+      fireImpact(active, state, now, canvas, props);
+    }
+    // Hit/Backfire fired at start-of-Resolution already; Dodge never fires.
+  }
+
   const next = nextPhase(active.phase);
   if (next === 'done') {
     // Aftermath ended. Clear the active animation, then request next event.
@@ -501,7 +556,7 @@ function advanceActive(
   active.phaseStart = now;
 
   if (next === 'resolution') {
-    onResolutionEnter(active, state, now, speed, canvas);
+    onResolutionEnter(active, state, now, speed, canvas, props);
   }
 }
 
@@ -511,7 +566,32 @@ function onResolutionEnter(
   now: number,
   speed: SpeedMultiplier,
   canvas: HTMLCanvasElement,
+  props: EncounterCanvasProps,
 ): void {
+  // Fire Impact Moment at start of Resolution for Hit and Backfire.
+  // Counterattack fires at end of Resolution; Dodge never fires.
+  if (anim.event.outcome === 'Hit' || anim.event.outcome === 'Backfire') {
+    fireImpact(anim, state, now, canvas, props);
+  }
+  // Suppress lint warning about unused parameter
+  void speed;
+}
+
+/**
+ * Land the per-Outcome flash, damage number, screen shake, and the
+ * `onSpellImpact` callback. Called at the per-Outcome Impact Moment.
+ * Sets `anim.impactFired` so we never double-fire.
+ */
+function fireImpact(
+  anim: SpellAnimation,
+  state: AnimState,
+  now: number,
+  canvas: HTMLCanvasElement,
+  props: EncounterCanvasProps,
+): void {
+  if (anim.impactFired) return;
+  anim.impactFired = true;
+
   const outcome = anim.event.outcome;
   const rect = canvas.getBoundingClientRect();
   const layout = computeLayout(rect.width, rect.height);
@@ -547,8 +627,8 @@ function onResolutionEnter(
     state.damageNumberStyles.set(id, pickDamageColor(damaged.side, outcome as 'Counterattack' | 'Hit' | 'Backfire'));
   }
 
-  // Suppress lint warning about unused parameter
-  void speed;
+  // Notify the screen so it can advance the displayed HP. ADR-0006 (view).
+  props.onSpellImpact?.(anim.eventIdx);
 }
 
 function damageInfo(

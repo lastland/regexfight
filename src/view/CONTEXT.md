@@ -72,12 +72,23 @@ Stored in `localStorage`; mutated via the Speed Control or number keys.
 ### Event-Driven Pacing
 The Encounter Screen *pulls* events from `combat` via an `onRequestNextEvent` callback that fires when the current Spell's Aftermath finishes. There is no `setInterval` driving the sim. See `docs/adr/0003-event-driven-encounter-pacing.md`.
 
+### Impact Moment
+The instant *within* the Resolution Animation Phase at which a Spell's visible consequence lands. Per-Outcome:
+
+- **Counterattack** — end of Resolution (when the reversed projectile arrives back at the enemy).
+- **Hit / Backfire** — start of Resolution (when the projectile reaches the player).
+- **Dodge** — none (the projectile phases past; there is no consequence to gate on).
+
+The Encounter Canvas fires `onSpellImpact(eventIdx)` at the Impact Moment. The Encounter Screen uses this to advance **displayed HP** — distinct from sim HP, which is correct-but-early. Without this lag, the HP bar would drop ~1.6 s before the visible impact. See `docs/adr/0007-impact-tick-and-hp-lag.md`.
+
+The Impact Moment also gates other Resolution-time visuals: per-Outcome flash and damage number spawn.
+
 ## Outcome animations
 
 The Resolution Animation Phase branches by Outcome. All four branches reuse the same projectile + Spell Text setup; only what happens *to* them differs.
 
 ### Counterattack Animation
-Player → Counterattack pose. Ward Sigil → Active. Projectile reverses direction, travels back to enemy, impacts. Enemy → Hit pose. Green flash on enemy. Damage number floats off enemy. No screen shake (player is in control).
+Player → Counterattack pose. Ward Sigil → Active. Projectile reverses direction, travels back to enemy, impacts at the **Impact Moment** (end of Resolution). Enemy → Hit pose at impact. Green flash on enemy at impact. Damage number floats off enemy at impact. No screen shake (player is in control).
 
 ### Hit Animation
 Projectile passes through where the Ward Sigil should have caught it (Sigil stays Idle — a visible failure to react). Strikes the player. Player → Hit pose. Red flash. **Screen shake** (small offset, 100–150 ms decay). Damage number floats off player.
@@ -86,7 +97,7 @@ Projectile passes through where the Ward Sigil should have caught it (Sigil stay
 Ward Sigil briefly Active — the Ward "tries to catch" — then the projectile dissolves through it and detonates on the player. Player → Hit pose. **Orange/amber flash** (distinct from Hit's red, so the player can tell what kind of error they made). Damage number floats off player. No screen shake.
 
 ### Dodge Animation
-Projectile phases past the player, fizzles out. Subtle blue shimmer behind the player. No damage, no shake.
+Projectile phases past the player and fizzles out. Subtle blue shimmer behind the player. No damage, no shake. Dodge has no **Impact Moment** since there is no consequence to gate on.
 
 ### Phase Transition Effect
 When an Enemy Phase advances (see `combat` glossary), the HP bar briefly flashes white as the Phase indicator increments. Fires within the Aftermath of the Spell that triggered the transition.

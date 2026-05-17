@@ -10,7 +10,7 @@
  * the terminal `EncounterEnded` event arrives.
  */
 
-import { useEffect, useMemo, useRef, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { EncounterEvent } from '../combat/types';
 import type { HP } from '../run/types';
 import type { Enemy } from '../content/types';
@@ -23,8 +23,6 @@ import { HpBarTween } from './effects/hpBarTween';
 export type EncounterScreenProps = {
   enemy: Enemy;
   events: readonly EncounterEvent[];
-  playerHp: HP;
-  enemyHp: HP;
   playerMaxHp: HP;
   enemyMaxHp: HP;
   currentPhaseIdx: number;
@@ -49,8 +47,6 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
   const {
     enemy,
     events,
-    playerHp,
-    enemyHp,
     playerMaxHp,
     enemyMaxHp,
     currentPhaseIdx,
@@ -60,6 +56,27 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
   } = props;
 
   const { speed, cycleSpeed } = useSpeedMultiplier();
+
+  // Displayed HP lags sim HP — advances one SpellResolved at a time at the
+  // canvas's per-Outcome Impact Moment. See ADR-0006 (view).
+  const [lastImpactedEventIdx, setLastImpactedEventIdx] = useState(-1);
+
+  // Reset on encounter-instance change (events array emptied between attempts).
+  const eventsEmpty = events.length === 0;
+  useEffect(() => {
+    if (eventsEmpty) setLastImpactedEventIdx(-1);
+  }, [eventsEmpty]);
+
+  const lastResolved =
+    lastImpactedEventIdx >= 0 ? events[lastImpactedEventIdx] : undefined;
+  const displayedPlayerHp =
+    lastResolved && lastResolved.tag === 'SpellResolved'
+      ? lastResolved.playerHp
+      : playerMaxHp;
+  const displayedEnemyHp =
+    lastResolved && lastResolved.tag === 'SpellResolved'
+      ? lastResolved.enemyHp
+      : enemyMaxHp;
 
   // Phase-transition white flash on the enemy HP bar. Each PhaseAdvanced
   // event bumps the key, which the HpBarTween component watches.
@@ -92,7 +109,7 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
         <div className="flex flex-col gap-1">
           <span className="font-semibold">Player</span>
           <HpBarTween
-            current={playerHp}
+            current={displayedPlayerHp}
             max={playerMaxHp}
             side="player"
           />
@@ -100,7 +117,7 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
         <div className="flex flex-col gap-1 text-right">
           <span className="font-semibold">{enemy.name}</span>
           <HpBarTween
-            current={enemyHp}
+            current={displayedEnemyHp}
             max={enemyMaxHp}
             side="enemy"
             flashKey={phaseFlashKey}
@@ -120,6 +137,7 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
           <EncounterCanvas
             events={events}
             onRequestNextEvent={onRequestNextEvent}
+            onSpellImpact={setLastImpactedEventIdx}
             speed={speed}
             autoTick={autoTick}
           />

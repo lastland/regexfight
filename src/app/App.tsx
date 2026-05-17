@@ -22,7 +22,7 @@ import {
   loadRunFromStorage,
   saveRunToStorage,
 } from '../persist';
-import { hp, score } from '../run/types';
+import { score } from '../run/types';
 import type { Run } from '../run/types';
 import {
   EncounterScreen,
@@ -345,8 +345,6 @@ export function App(props: AppProps = {}) {
       <EncounterScreen
         enemy={currentEnemy}
         events={screen.events}
-        playerHp={hp(Math.max(0, screen.sim.playerHp))}
-        enemyHp={hp(Math.max(0, screen.sim.enemyHp))}
         playerMaxHp={screen.sim.playerMaxHp}
         enemyMaxHp={screen.sim.enemyMaxHp}
         currentPhaseIdx={screen.sim.currentPhaseIdx}
