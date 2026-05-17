@@ -288,6 +288,24 @@ export function App(props: AppProps = {}) {
     setScreen({ tag: 'prep', lastWardSrc: '', lastFlags: '' });
   }, [run, enemies]);
 
+  const onRestart = useCallback(() => {
+    if (!run || !enemies) return;
+    // Fresh Run reusing the loaded enemy roster and the current PlayerProfile.
+    // Observation logs, score, attempt counts, and death count are discarded
+    // — Restart means "start a new run from zero". The save useEffect will
+    // overwrite localStorage with the fresh Run.
+    const fresh = createRun(enemies, run.player);
+    const firstEnemy = enemies[fresh.currentIdx];
+    if (!firstEnemy) {
+      setRun(fresh);
+      setScreen({ tag: 'run-complete' });
+      return;
+    }
+    const seeded = seedOnArrival(fresh, firstEnemy);
+    setRun(seeded);
+    setScreen({ tag: 'prep', lastWardSrc: '', lastFlags: '' });
+  }, [run, enemies]);
+
   // --- Render ----------------------------------------------------------------
 
   if (screen.tag === 'loading') {
@@ -308,6 +326,13 @@ export function App(props: AppProps = {}) {
         <p className="text-zinc-400 mt-2">
           Score: {run ? (run.progressScore) : 0}
         </p>
+        <button
+          type="button"
+          onClick={onRestart}
+          className="mt-6 rounded border border-zinc-600 bg-zinc-800 px-4 py-2 font-mono text-sm text-zinc-100 hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+        >
+          Restart
+        </button>
       </CenteredMessage>
     );
   }
