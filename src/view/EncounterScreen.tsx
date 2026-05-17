@@ -19,6 +19,7 @@ import { KIND_CLASS, OUTCOME_CLASS, OUTCOME_LABEL } from './colors';
 import { SpeedControl } from './SpeedControl';
 import { useSpeedMultiplier } from './useSpeedMultiplier';
 import { HpBarTween } from './effects/hpBarTween';
+import { MuteButton } from './audio';
 
 export type EncounterScreenProps = {
   enemy: Enemy;
@@ -129,7 +130,10 @@ export function EncounterScreen(props: EncounterScreenProps): JSX.Element {
         <span>
           Phase {currentPhaseIdx + 1} / {enemy.phases.length}
         </span>
-        <SpeedControl speed={speed} onCycle={cycleSpeed} />
+        <div className="flex items-center gap-2">
+          <SpeedControl speed={speed} onCycle={cycleSpeed} />
+          <MuteButton />
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

@@ -67,6 +67,13 @@ import {
   drawEnemyDeathSilhouette,
   enemyDeathFrame,
 } from './effects/enemyDeath';
+import {
+  playCast,
+  playDefeat,
+  playOutcome,
+  playPhaseTransform,
+  playVictory,
+} from './audio';
 
 // ---------------------------------------------------------------------------
 // Phase timing (ms at 1×). Scaled by SpeedMultiplier at runtime.
@@ -496,6 +503,9 @@ export function EncounterCanvas(props: EncounterCanvasProps): JSX.Element {
               phaseStart: now,
               impactFired: false,
             };
+            // Cast sound at Invocation enter — pairs with the Enemy
+            // Casting pose and the glyph-by-glyph Spell Text reveal.
+            playCast(speed);
             // The per-Outcome flash + damage number + onSpellImpact callback
             // fire at the per-Outcome Impact Moment (ADR-0007 view):
             //   - Hit/Backfire → start of Resolution (handled in onResolutionEnter)
@@ -522,8 +532,14 @@ export function EncounterCanvas(props: EncounterCanvasProps): JSX.Element {
             };
             // Brief shake to underline the transformation impact.
             state.shakeStart = now;
+            // Phase Transformation sting layers over the shake.
+            playPhaseTransform(speed);
           } else {
             state.active = { kind: 'end', event: ev, startTime: now };
+            // Encounter end. Victory is already sounded at the killing-blow
+            // Impact Moment in fireImpact (alongside `enemyDeathStart`).
+            // Defeat is sounded at the killing Hit/Backfire impact in
+            // fireImpact. No additional sound here.
           }
           state.lastConsumedIdx = idx;
         }
@@ -614,7 +630,7 @@ function advanceActive(
   //   - Dodge: never fires (no consequence to gate on).
   if (active.phase === 'resolution' && !active.impactFired) {
     if (active.event.outcome === 'Counterattack') {
-      fireImpact(active, state, now, canvas, props);
+      fireImpact(active, state, now, speed, canvas, props);
     }
     // Hit/Backfire fired at start-of-Resolution already; Dodge never fires.
   }
@@ -657,16 +673,16 @@ function onResolutionEnter(
   // Fire Impact Moment at start of Resolution for Hit and Backfire.
   // Counterattack fires at end of Resolution; Dodge never fires.
   if (anim.event.outcome === 'Hit' || anim.event.outcome === 'Backfire') {
-    fireImpact(anim, state, now, canvas, props);
+    fireImpact(anim, state, now, speed, canvas, props);
   }
   // Dodge: spawn DODGE! text at start of Resolution (Dodge has no Impact
   // Moment, so we trigger the celebratory text when the dodge animation
   // begins). Counterattack's COUNTER! text fires from fireImpact.
   if (anim.event.outcome === 'Dodge') {
     spawnOutcomeText(state, 'DODGE', now, canvas);
+    // Dodge sound at the start-of-Resolution beat (no Impact Moment).
+    playOutcome('Dodge', speed);
   }
-  // Suppress lint warning about unused parameter
-  void speed;
 }
 
 function spawnOutcomeText(
@@ -693,6 +709,7 @@ function fireImpact(
   anim: SpellAnimation,
   state: AnimState,
   now: number,
+  speed: SpeedMultiplier,
   canvas: HTMLCanvasElement,
   props: EncounterCanvasProps,
 ): void {
@@ -700,6 +717,10 @@ function fireImpact(
   anim.impactFired = true;
 
   const outcome = anim.event.outcome;
+  // Per-Outcome sound at the Impact Moment. Counterattack / Hit / Backfire
+  // pair with their flash + damage number; Dodge has no Impact Moment and
+  // is sounded at start-of-Resolution in `onResolutionEnter`.
+  playOutcome(outcome, speed);
   const rect = canvas.getBoundingClientRect();
   const layout = computeLayout(rect.width, rect.height);
 
@@ -744,6 +765,16 @@ function fireImpact(
     // holds onRequestNextEvent until the animation completes.
     if ((anim.event.enemyHp as unknown as number) <= 0) {
       state.enemyDeathStart = now;
+      // Victory sting layered over the Counterattack outcome sound and the
+      // death animation. Anchors the encounter's audible ending to the
+      // impact, not the post-Aftermath EncounterEnded ingest.
+      playVictory(speed);
+    }
+  } else if (outcome === 'Hit' || outcome === 'Backfire') {
+    // Killing hit on the player: layer the Defeat sting over the outcome
+    // sound at the Impact Moment. Mirrors Victory's anchoring.
+    if ((anim.event.playerHp as unknown as number) <= 0) {
+      playDefeat(speed);
     }
   }
 

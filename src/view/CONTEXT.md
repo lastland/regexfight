@@ -220,6 +220,38 @@ Distinct from Kind colouring. Each Outcome has its own visual flash colour durin
 ### Render Boundary
 The line between `combat`/`run` (which produce state and events) and `view` (which consumes them). React components consume via props/hooks; they never mutate domain state directly. Mutations route back through the app layer.
 
+## Sound
+
+The audio surface for the encounter. Lives at `src/view/audio/`, peer of `src/view/effects/` and `src/view/sprites/`. Triggered by the same callbacks that drive the visual effects (Invocation phase enter, per-Outcome Impact Moment, PhaseAdvanced ingest, killing-blow impact). Source samples are CC0 from Juhani Junkala's *Essential Retro Video Game SFX Collection* (see `data/audio/LICENSE.md`).
+
+Eight sounds are wired in v1.1:
+
+| Trigger             | When it plays                                                            |
+|---------------------|--------------------------------------------------------------------------|
+| Cast                | Invocation phase enter (each Spell).                                     |
+| Counterattack       | Per-Outcome Impact Moment for a Counterattack (end of Resolution).       |
+| Hit                 | Per-Outcome Impact Moment for a Hit (start of Resolution).               |
+| Backfire            | Per-Outcome Impact Moment for a Backfire (start of Resolution).          |
+| Dodge               | Start of Resolution for a Dodge (no Impact Moment).                      |
+| Phase Transformation | PhaseAdvanced ingest, alongside the shake and silhouette flash-in.       |
+| Victory             | Killing-blow Counterattack's Impact Moment, alongside `enemyDeathStart`. |
+| Defeat              | Killing Hit/Backfire's Impact Moment (player HP reaches 0).              |
+
+### Sample
+A decoded `AudioBuffer` for one of the eight triggers. Source files live in `data/audio/` (CC0). Loaded lazily on the first user gesture (Start-encounter click) and cached for the page lifetime. Until decode completes, triggers no-op silently.
+
+### Trigger (sound)
+A typed `(speed) => void` function — one per sound moment. Constructs a Voice from the named Sample, applies an Envelope Release Scale, and starts it on the master gain. Best-effort: silent no-op if Web Audio is unsupported, the AudioContext hasn't been resumed yet, or the Sample isn't decoded.
+
+### Voice
+The per-shot audio graph: one `BufferSourceNode` connected through a release-envelope `GainNode` to the master gain. Created on each trigger, started immediately, scheduled to stop at the truncated end. Multiple Voices may overlap (polyphony); no manual lifetime management — they're garbage-collected once stopped.
+
+### Envelope Release Scale
+A multiplier (`1 / speedMultiplier` clamped to a `[0.12, 1.0]` band with a small fudge factor) applied to a Voice's release segment. Ensures the sound tail at any Speed Multiplier never blocks the next Spell's Cast. The audio analogue of ADR-0003's "glyph-cap" exception.
+
+### Mute Toggle
+HUD widget on both Prep and Encounter (`MuteButton.tsx`); persists `{ muted }` to `localStorage` under `regexfight:audio:v1`, separate from the Run save (cosmetic preference). When muted, the master gain ramps to 0 over ~20 ms (avoids a click). Keyboard shortcut: `M` (suppressed while focus is in an `<input>` or `<textarea>`, mirroring the Speed Control's digit shortcuts).
+
 ## Terms borrowed from other contexts
 
 | Term            | Owning context | Why it shows up here                                       |
@@ -230,6 +262,8 @@ The line between `combat`/`run` (which produce state and events) and `view` (whi
 | Spell, Kind     | `combat`       | Color coding and chip rendering reference these.           |
 | Run, Score      | `run`          | Score display on Prep Screen and Post-mortem Screen.       |
 | Enemy Phase     | `combat`       | The Encounter Canvas indicates phase transitions; cross-context disambiguation against Animation Phase. |
+| Outcome (sound) | `combat`       | The four impact sounds dispatch by Outcome.                |
+| PhaseAdvanced, EncounterEnded | `combat` | The non-impact sounds (Phase Transformation, Victory, Defeat) trigger from these events. |
 
 ## What the view context does NOT own
 

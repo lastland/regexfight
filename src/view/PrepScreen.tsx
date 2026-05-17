@@ -13,6 +13,7 @@ import type { Spell } from '../combat/types';
 import type { Score } from '../run/types';
 import { ObservationLog } from './ObservationLog';
 import { WardEditor } from './WardEditor';
+import { MuteButton } from './audio';
 
 export type PrepScreenProps = {
   enemy: Enemy;
@@ -39,11 +40,14 @@ export function PrepScreen(props: PrepScreenProps): JSX.Element {
           <h1 className="text-2xl font-bold">{enemy.name}</h1>
           <p className="text-sm text-zinc-400">Prep — choose your Ward.</p>
         </div>
-        <div className="text-right font-mono">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Score
+        <div className="flex items-center gap-3">
+          <div className="text-right font-mono">
+            <div className="text-xs uppercase tracking-wide text-zinc-500">
+              Score
+            </div>
+            <div className="text-xl text-amber-300">{progressScore as number}</div>
           </div>
-          <div className="text-xl text-amber-300">{progressScore as number}</div>
+          <MuteButton />
         </div>
       </header>
 

@@ -30,6 +30,11 @@ import {
   PrepScreen,
 } from '../view';
 import type { AttemptLogEntry } from '../view';
+import {
+  ensureAudioContextResumed,
+  getAudioContext,
+  loadAllSamples,
+} from '../view/audio';
 
 // Vite raw imports: bundles the YAML text into the JS at build time.
 import playerYamlText from '../../data/player.yaml?raw';
@@ -212,6 +217,12 @@ export function App(props: AppProps = {}) {
   const onStartEncounter = useCallback(
     (ward: RegExp) => {
       if (!run || !currentEnemy) return;
+      // Use this click as the user gesture that satisfies Web Audio's
+      // autoplay restriction, and kick off lazy sample decoding.
+      void ensureAudioContextResumed().then(() => {
+        const ctx = getAudioContext();
+        if (ctx !== null) void loadAllSamples(ctx);
+      });
       const seed = Math.floor(Math.random() * 0x7fffffff);
       const sim = startEncounter({
         enemy: currentEnemy,
