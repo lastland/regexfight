@@ -138,7 +138,52 @@ export function stepEncounter(
   state: EncounterState,
   ward: RegExp,
 ): { state: EncounterState; event: EncounterEvent } {
-  // Pick the spell deterministically.
+  // 1) If a previous step left HP at 0 (the killing blow already animated),
+  //    emit EncounterEnded NOW. This ensures the SpellResolved that brought
+  //    HP to 0 was visible in the event stream before the encounter ends —
+  //    otherwise the canvas never sees the last round of combat.
+  if ((state.playerHp as number) <= 0) {
+    return {
+      state,
+      event: {
+        tag: 'EncounterEnded',
+        result: 'Defeat',
+        damageTakenThisAttempt: state.damageTakenThisAttempt,
+      },
+    };
+  }
+  if ((state.enemyHp as number) <= 0) {
+    return {
+      state,
+      event: {
+        tag: 'EncounterEnded',
+        result: 'Victory',
+        damageTakenThisAttempt: state.damageTakenThisAttempt,
+      },
+    };
+  }
+
+  // 2) If a previous step's HP drop crossed a Phase threshold (and the
+  //    SpellResolved that crossed it already animated), emit PhaseAdvanced
+  //    NOW. Same reason as above: the threshold-crossing spell needs to
+  //    appear in the stream before the transformation animation plays.
+  const pendingPhaseIdx = nextPhaseIdxFor(
+    state.phases,
+    state.currentPhaseIdx,
+    state.enemyHp,
+    state.enemyMaxHp,
+  );
+  if (pendingPhaseIdx !== state.currentPhaseIdx) {
+    return {
+      state: { ...state, currentPhaseIdx: pendingPhaseIdx },
+      event: { tag: 'PhaseAdvanced', phaseIdx: pendingPhaseIdx },
+    };
+  }
+
+  // 3) Normal step: pick a spell, resolve, emit SpellResolved. If this
+  //    spell brings HP to 0 (killing blow) or crosses a Phase threshold,
+  //    the NEXT call will emit the corresponding boundary event — but the
+  //    SpellResolved is always emitted for the spell that was cast.
   const spell = pickSpell(state);
   const outcome = resolveSpell(spell, ward);
 
@@ -162,57 +207,14 @@ export function stepEncounter(
   const damageTakenThisStep = playerHpDelta < 0 ? -playerHpDelta : 0;
   const newDamageTaken = state.damageTakenThisAttempt + damageTakenThisStep;
 
-  const baseNextState: EncounterState = {
-    ...state,
-    playerHp: newPlayerHp,
-    enemyHp: newEnemyHp,
-    stepCount: state.stepCount + 1,
-    damageTakenThisAttempt: newDamageTaken,
-  };
-
-  // Encounter end takes priority.
-  if ((newPlayerHp as number) <= 0) {
-    return {
-      state: baseNextState,
-      event: {
-        tag: 'EncounterEnded',
-        result: 'Defeat',
-        damageTakenThisAttempt: newDamageTaken,
-      },
-    };
-  }
-  if ((newEnemyHp as number) <= 0) {
-    return {
-      state: baseNextState,
-      event: {
-        tag: 'EncounterEnded',
-        result: 'Victory',
-        damageTakenThisAttempt: newDamageTaken,
-      },
-    };
-  }
-
-  // Phase advance: if the new HP crosses into the next phase's band.
-  const newPhaseIdx = nextPhaseIdxFor(
-    state.phases,
-    state.currentPhaseIdx,
-    newEnemyHp,
-    state.enemyMaxHp,
-  );
-  if (newPhaseIdx !== state.currentPhaseIdx) {
-    const advancedState: EncounterState = {
-      ...baseNextState,
-      currentPhaseIdx: newPhaseIdx,
-    };
-    return {
-      state: advancedState,
-      event: { tag: 'PhaseAdvanced', phaseIdx: newPhaseIdx },
-    };
-  }
-
-  // Otherwise normal spell-resolved event.
   return {
-    state: baseNextState,
+    state: {
+      ...state,
+      playerHp: newPlayerHp,
+      enemyHp: newEnemyHp,
+      stepCount: state.stepCount + 1,
+      damageTakenThisAttempt: newDamageTaken,
+    },
     event: {
       tag: 'SpellResolved',
       spell,

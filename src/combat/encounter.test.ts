@@ -289,15 +289,45 @@ describe('encounter — example: /.*/ Ward dies', () => {
 });
 
 describe('encounter — phase advance', () => {
-  it('emits PhaseAdvanced (not SpellResolved) on the step that crosses the threshold', () => {
+  it('emits PhaseAdvanced exactly once on a 2-phase encounter', () => {
     const enemy = mkEnemy();
     const player = mkPlayer();
     const events = runEncounter(enemy, player, 99, /dragon\d+/);
     const phaseEvents = events.filter((e) => e.tag === 'PhaseAdvanced');
-    // The correct Ward Captures every Real (and we have a 50/50 Real/Decoy
-    // split). 100 enemy HP, attack 8 → ~13 captures to kill the enemy. We
-    // should cross the 0.5 threshold along the way.
+    // The correct Ward Counterattacks every Real (and we have a 50/50 split).
+    // 100 enemy HP, attack 8 → ~13 captures to kill the enemy. We should
+    // cross the 0.5 threshold along the way.
     expect(phaseEvents.length).toBe(1);
     expect(phaseEvents[0]).toEqual({ tag: 'PhaseAdvanced', phaseIdx: 1 });
+  });
+
+  it('emits the threshold-crossing SpellResolved before the PhaseAdvanced (boundary spell is visible)', () => {
+    const enemy = mkEnemy();
+    const player = mkPlayer();
+    const events = runEncounter(enemy, player, 99, /dragon\d+/);
+    const phaseIdx = events.findIndex((e) => e.tag === 'PhaseAdvanced');
+    expect(phaseIdx).toBeGreaterThan(0);
+    const prev = events[phaseIdx - 1];
+    expect(prev?.tag).toBe('SpellResolved');
+    // The previous event's enemyHp must already be in the phase-2 band
+    // (≤ 0.5 × maxHp), since this is the spell that crossed the threshold.
+    if (prev?.tag === 'SpellResolved') {
+      expect((prev.enemyHp as unknown as number) / (enemy.baseHp as unknown as number)).toBeLessThanOrEqual(0.5);
+    }
+  });
+
+  it('emits the killing-blow SpellResolved before EncounterEnded (final spell is visible)', () => {
+    const enemy = mkEnemy();
+    const player = mkPlayer();
+    const events = runEncounter(enemy, player, 42, /dragon\d+/);
+    const endIdx = events.findIndex((e) => e.tag === 'EncounterEnded');
+    expect(endIdx).toBeGreaterThan(0);
+    const prev = events[endIdx - 1];
+    expect(prev?.tag).toBe('SpellResolved');
+    // The killing-blow SpellResolved must carry enemyHp = 0 so the canvas
+    // can trigger the Enemy Death animation at its Impact Moment.
+    if (prev?.tag === 'SpellResolved') {
+      expect(prev.enemyHp as unknown as number).toBe(0);
+    }
   });
 });
