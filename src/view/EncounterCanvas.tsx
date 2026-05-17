@@ -62,6 +62,11 @@ import {
   drawOutcomeText,
   type OutcomeTextState,
 } from './effects/outcomeText';
+import {
+  ENEMY_DEATH_DURATION_MS,
+  drawEnemyDeathSilhouette,
+  enemyDeathFrame,
+} from './effects/enemyDeath';
 
 // ---------------------------------------------------------------------------
 // Phase timing (ms at 1×). Scaled by SpeedMultiplier at runtime.
@@ -201,6 +206,13 @@ type AnimState = {
    * AnimState so subsequent spell animations use the new variant.
    */
   enemyVariant: EnemyPhaseVariant;
+  /**
+   * Wall-clock at which the Enemy Death animation started — set at the
+   * Impact Moment of the killing-blow Counterattack. While non-null,
+   * Aftermath's end will *not* call onRequestNextEvent until the death
+   * animation has run its course. See `./effects/enemyDeath.ts`.
+   */
+  enemyDeathStart: number | null;
   // The previously-rendered terminal-event flag, so we can stop ticking.
   encounterEnded: boolean;
 };
@@ -217,6 +229,7 @@ function initialState(): AnimState {
     flash: null,
     outcomeText: null,
     enemyVariant: 'phase1',
+    enemyDeathStart: null,
     encounterEnded: false,
   };
 }
@@ -608,7 +621,18 @@ function advanceActive(
 
   const next = nextPhase(active.phase);
   if (next === 'done') {
-    // Aftermath ended. Clear the active animation, then request next event.
+    // Aftermath ended. If a killing-blow Death animation is still playing,
+    // hold here — don't request the next event yet. The next tick will
+    // re-enter this branch (still phase='aftermath' with elapsed>=dur) and
+    // check again. Once the death animation has aged out, we proceed.
+    if (state.enemyDeathStart !== null) {
+      const deathDur = ENEMY_DEATH_DURATION_MS / speed;
+      if (now - state.enemyDeathStart < deathDur) {
+        return;
+      }
+    }
+    // Aftermath ended (and death animation, if any, has run its course).
+    // Clear the active animation, then request next event.
     state.active = null;
     props.onRequestNextEvent();
     return;
@@ -714,6 +738,13 @@ function fireImpact(
   // (end of Resolution, when the reversed projectile reaches the enemy).
   if (outcome === 'Counterattack') {
     spawnOutcomeText(state, 'COUNTER', now, canvas);
+    // Killing blow: start the Enemy Death animation here so the encounter's
+    // visible ending is anchored to the impact rather than appearing as a
+    // separate beat after Aftermath. The state-machine end-of-spell logic
+    // holds onRequestNextEvent until the animation completes.
+    if ((anim.event.enemyHp as unknown as number) <= 0) {
+      state.enemyDeathStart = now;
+    }
   }
 
   // Notify the screen so it can advance the displayed HP. ADR-0007 (view).
@@ -882,22 +913,34 @@ function drawFigures(
   }
 
   const enemySprite = getEnemyFigure(enemyPose, enemyVariant);
-  ctx.drawImage(
-    enemySprite,
-    layout.enemyX,
-    layout.enemyY,
-    enemySprite.width * ENEMY_FIGURE_SCALE,
-    enemySprite.height * ENEMY_FIGURE_SCALE,
-  );
-  // Defeated → desaturate by drawing a translucent grey over the enemy.
-  if (enemyPose === 'defeated') {
-    ctx.fillStyle = 'rgba(20, 20, 20, 0.45)';
-    ctx.fillRect(
-      layout.enemyX,
-      layout.enemyY,
-      enemySprite.width * ENEMY_FIGURE_SCALE,
-      enemySprite.height * ENEMY_FIGURE_SCALE,
-    );
+  const enemyRect = {
+    x: layout.enemyX,
+    y: layout.enemyY,
+    w: enemySprite.width * ENEMY_FIGURE_SCALE,
+    h: enemySprite.height * ENEMY_FIGURE_SCALE,
+  };
+
+  // Enemy Death animation: at the killing-blow Impact Moment, the enemy
+  // figure fades to 0 under a white silhouette flash. Once complete, the
+  // sprite is no longer drawn at all (the enemy has "disappeared").
+  const deathFrame =
+    state.enemyDeathStart !== null
+      ? enemyDeathFrame(state.enemyDeathStart, now, speed)
+      : null;
+  const enemyVisible = deathFrame === null || deathFrame.spriteAlpha > 0;
+  if (enemyVisible) {
+    const prevAlpha = ctx.globalAlpha;
+    if (deathFrame !== null) {
+      ctx.globalAlpha = prevAlpha * deathFrame.spriteAlpha;
+    }
+    ctx.drawImage(enemySprite, enemyRect.x, enemyRect.y, enemyRect.w, enemyRect.h);
+    // Defeated → desaturate by drawing a translucent grey over the enemy.
+    // Skipped if the death animation has rendered the enemy itself invisible.
+    if (enemyPose === 'defeated') {
+      ctx.fillStyle = 'rgba(20, 20, 20, 0.45)';
+      ctx.fillRect(enemyRect.x, enemyRect.y, enemyRect.w, enemyRect.h);
+    }
+    ctx.globalAlpha = prevAlpha;
   }
 
   // Phase Transformation white silhouette — fades in to a peak at
@@ -909,15 +952,16 @@ function drawFigures(
       const prevFill = ctx.fillStyle;
       ctx.globalAlpha = prevAlpha * alpha;
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(
-        layout.enemyX,
-        layout.enemyY,
-        enemySprite.width * ENEMY_FIGURE_SCALE,
-        enemySprite.height * ENEMY_FIGURE_SCALE,
-      );
+      ctx.fillRect(enemyRect.x, enemyRect.y, enemyRect.w, enemyRect.h);
       ctx.globalAlpha = prevAlpha;
       ctx.fillStyle = prevFill;
     }
+  }
+
+  // Enemy Death silhouette — drawn on top of the (already alpha-faded)
+  // enemy sprite so the white flash is fully opaque at its peak.
+  if (deathFrame !== null) {
+    drawEnemyDeathSilhouette(ctx, enemyRect, deathFrame);
   }
 
   const playerSprite = getPlayerFigure(playerPose, skin);

@@ -112,7 +112,16 @@ The on-canvas animation that plays when an Enemy Phase advances. The encounter i
 
 Total ~800 ms at 1×; scales with the Speed Multiplier. Enemies whose sprite assets declare per-Phase variants get a visible transformation; enemies without variants reuse the Phase-1 art and the animation degenerates to a brief white flash (still readable as "something changed").
 
-### Outcome Text Overlay
+### Enemy Death Animation
+Plays at the Impact Moment of the killing-blow Counterattack — the moment the displayed Enemy HP reaches 0. Anchors the encounter's visible ending to the impact rather than letting the postmortem transition appear as a separate, disconnected beat.
+
+The Encounter Canvas:
+
+1. Sets `enemyDeathStart` when fireImpact runs for a Counterattack with `event.enemyHp ≤ 0`.
+2. Renders the Enemy Figure with a fade-to-zero alpha and a white silhouette flash on top (peak ~40% through; fade-out from ~40% to 100%).
+3. Withholds `onRequestNextEvent` at Aftermath-end until the death animation has run its course, so the `EncounterEnded` event isn't ingested (and the postmortem can't transition) until the player has seen the enemy disappear.
+
+Duration ~1 s at 1×, scales with the Speed Multiplier. See `effects/enemyDeath.ts`.
 Large center-screen text that appears at the Impact Moment to celebrate the player's successful Ward decision. Two outcomes show text:
 
 - **Counterattack** → `COUNTER!` (green) — fires at the Impact Moment (end of Resolution).

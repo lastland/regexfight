@@ -78,11 +78,13 @@ type ScreenState =
  * Aftermath finishes, and that callback is what advances the sim. See
  * `src/view/docs/adr/0003-event-driven-encounter-pacing.md`.
  *
- * `END_PAUSE_MS` is a transition delay between EncounterEnded and the
- * post-mortem screen — it is NOT the encounter clock, so it survives the
- * refactor unchanged.
+ * `END_PAUSE_MS` is the transition delay between EncounterEnded and the
+ * post-mortem screen. On Victory the Encounter Canvas already plays a
+ * ~1 s Enemy Death animation BEFORE requesting the EncounterEnded event,
+ * so this pause is the additional beat after the death lands. On Defeat
+ * it is the sole "you died" pause — kept long enough to register.
  */
-const END_PAUSE_MS = 1200;
+const END_PAUSE_MS = 600;
 
 export type AppProps = {
   /**
